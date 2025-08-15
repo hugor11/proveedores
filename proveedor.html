@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Proveedores - Abarrotes y Carnicería Itzel</title>
+    <meta name="description" content="Sistema de gestión de proveedores para Abarrotes y Carnicería Itzel">
+    <style>
+        /* Estilos Generales */
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            background-color: #f8f9fa; 
+            color: #212529; 
+            line-height: 1.5;
+        }
+        header { 
+            background: linear-gradient(135deg, #000000 0%, #2c2c2c 100%); 
+            color: #ff4757; 
+            text-align: center; 
+            padding: 1.5rem 0; 
+            border-bottom: 3px solid #ff4757; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        header h1 { 
+            margin: 0; 
+            font-size: 2.2em; 
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .main-container { 
+            width: 90%; 
+            max-width: 1200px; 
+            margin: 20px auto; 
+        }
+        .seccion { 
+            background-color: white; 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); 
+            margin-bottom: 25px;
+            border: 1px solid #e9ecef;
+        }
+        .seccion h2 { 
+            text-align: center; 
+            color: #dc3545; 
+            margin-bottom: 30px; 
+            margin-top: 5px; 
+            border-bottom: 2px solid #dc3545; 
+            padding-bottom: 15px;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            color: #495057; 
+            font-weight: 600; 
+            font-size: 0.95em;
+        }
+        input[type="text"], input[type="date"], select, textarea { 
+            width: 100%; 
+            padding: 12px 15px; 
+            margin-bottom: 20px; 
+            border: 2px solid #e9ecef; 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            font-family: inherit; 
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        input[type="text"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        textarea { 
+            resize: vertical; 
+            min-height: 100px; 
+        }
+        button { 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 0.95rem; 
+            font-weight: 600;
+            transition: all 0.3s ease; 
+            margin-right: 8px; 
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        #navegacion button, #proveedor-form button[type="submit"] { background-color: #dc3545; }
+        #navegacion button:hover, #proveedor-form button[type="submit"]:hover { background-color: #c82333; }
+        #botonesReportesPredefinidos button, #btnGenerarReportePersonalizado { background-color: #007bff; }
+        #botonesReportesPredefinidos button:hover, #btnGenerarReportePersonalizado:hover { background-color: #0056b3; }
+        #btnExportarDatos { background-color: #28a745; } /* Verde */
+        #btnExportarDatos:hover { background-color: #218838; }
+        #btnImportarDatos { background-color: #ffc107; color: #212529; } /* Amarillo */
+        #btnImportarDatos:hover { background-color: #e0a800; }
+        .btn-eliminar-proveedor { background-color: #6c757d; padding: 5px 10px; font-size: 0.8rem; }
+        .btn-eliminar-proveedor:hover { background-color: #5a6268; }
+        .btn-editar-proveedor { background-color: #17a2b8; padding: 5px 10px; font-size: 0.8rem; margin-right: 5px;}
+        .btn-editar-proveedor:hover { background-color: #138496;}
+        #btnExportarReporteCSV { background-color: #17a2b8; margin-top: 15px;} /* Azul claro */
+        #btnExportarReporteCSV:hover { background-color: #138496;}
+        table { border-collapse: collapse; margin-top: 20px; width: 100%; }
+        th, td { border: 1px solid #dee2e6; padding: 8px; text-align: left; vertical-align: middle; font-size: 0.9em; }
+        th { background-color: #e9ecef; font-weight: 600; }
+        #tablaReporte { margin-top: 20px; overflow-x: auto; }
+        #tablaReporte th, #tablaReporte td { text-align: center; }
+        #tablaReporte th:first-child, #tablaReporte td:first-child { text-align: left; }
+        .asistencia-container { display: flex; align-items: center; gap: 8px; justify-content: center; }
+        .asistencia-container span { min-width: 25px; display: inline-block; text-align: left; vertical-align: middle; }
+        #navegacion { 
+            margin-bottom: 25px; 
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        #navegacion button {
+            flex: 1;
+            min-width: 180px;
+            max-width: 220px;
+        }
+        #registroProveedores, #asistenciaDiaria, #reportes, #gestionProveedores { display: none; }
+        .error { 
+            color: #dc3545; 
+            font-size: 0.9em; 
+            margin-bottom: 15px; 
+            min-height: 1.3em;
+            font-weight: 500;
+            padding: 5px 0;
+        }
+        .success-message {
+            color: #28a745;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            font-weight: 500;
+            padding: 5px 0;
+        }
+        #gestionProveedores .datos-actions { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;}
+        .asistencia-preventa-select { padding: 3px 6px; font-size: 0.85em; height: auto; max-width: 150px; vertical-align: middle; margin: 0; border-radius: 4px; border: 1px solid #ced4da; }
+        .asistencia-container input[type="checkbox"] { vertical-align: middle; margin: 0; }
+
+        /* Spinner y mensajes de carga */
+        .spinner-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 18px 0;
+        }
+        .spinner {
+            width: 28px;
+            height: 28px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #dc3545;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        .mensaje-carga {
+            font-size: 1.1em;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        /* MEJORAS RESPONSIVE */
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8em; }
+            .main-container { width: 95%; margin: 15px auto; }
+            #panel-conexion-carga, #panel-metricas { 
+                width: 95%; 
+                margin: 15px auto; 
+                flex-direction: column; 
+                gap: 15px; 
+            }
+            .metrica-box { flex: 1 1 100%; margin-bottom: 12px; }
+            #navegacion { 
+                flex-direction: column;
+                gap: 8px;
+            }
+            #navegacion button { 
+                width: 100%; 
+                min-width: auto;
+                max-width: none;
+                margin-bottom: 8px; 
+            }
+            .seccion { padding: 20px 15px; }
+            table { font-size: 0.8em; overflow-x: auto; }
+            .asistencia-container { 
+                flex-direction: column; 
+                gap: 6px; 
+            }
+            .asistencia-preventa-select { 
+                max-width: 140px; 
+                font-size: 0.8em; 
+            }
+            button {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header { padding: 1rem 0; }
+            header h1 { font-size: 1.5em; }
+            .seccion { padding: 15px 12px; }
+            .seccion h2 { font-size: 1.5em; }
+            #panel-conexion-carga, #panel-metricas { margin: 10px auto; }
+        }
+
+        /* Mejorar feedback visual */
+        .btn-success { background-color: #28a745 !important; }
+        .btn-success:hover { background-color: #218838 !important; }
+        
+        .form-section { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .status-loading { opacity: 0.6; pointer-events: none; }
+        
+        /* Mejorar botones */
+        button:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+            transform: none !important;
+        }
+        
+        /* Mejorar tablas */
+        table {
+            border-collapse: collapse;
+            margin-top: 20px;
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 12px 15px;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 0.95em;
+        }
+        th {
+            background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%);
+            font-weight: 700;
+            color: #495057;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.85em;
+        }
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        tr:hover {
+            background-color: #e9ecef;
+            transition: background-color 0.2s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Abarrotes y Carniceria Itzel</h1>
+    </header>
+
+    <div id="panel-conexion-carga" style="width:90%;max-width:1200px;margin:15px auto 0 auto;display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:15px;background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+        <span id="backend-status-indicator" style="display:inline-block;padding:8px 20px;border-radius:8px;font-weight:700;background:#ffc107;color:#212529;font-size:0.95em;">
+            ⏳ Verificando conexión con el backend...
+        </span>
+        <button id="btnRefrescarDatos" style="background:#007bff;color:white;border:none;border-radius:8px;padding:10px 20px;font-weight:600;cursor:pointer;font-size:0.9rem;">
+            🔄 Refrescar datos
+        </button>
+        <div id="spinner-carga" class="spinner-container" style="display:none;">
+            <div class="spinner"></div>
+            <span class="mensaje-carga" id="mensaje-carga">Cargando proveedores...</span>
+        </div>
+    </div>
+
+    <!-- Panel de métricas -->
+    <div id="panel-metricas" style="width:90%;max-width:1200px;margin:20px auto 0 auto;display:flex;gap:20px;flex-wrap:wrap;">
+        <div class="metrica-box" style="flex:1 1 200px;background:linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);border-radius:12px;padding:25px 20px;box-shadow:0 4px 15px rgba(0,0,0,0.1);text-align:center;border:1px solid #f1c40f;">
+            <div style="font-size:2.5em;font-weight:800;color:#856404;margin-bottom:5px;" id="metrica-activos">0</div>
+            <div style="font-size:1em;color:#856404;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Proveedores activos</div>
+        </div>
+        <div class="metrica-box" style="flex:1 1 200px;background:linear-gradient(135deg, #d1ecf1 0%, #74b9ff 100%);border-radius:12px;padding:25px 20px;box-shadow:0 4px 15px rgba(0,0,0,0.1);text-align:center;border:1px solid #3498db;">
+            <div style="font-size:2.5em;font-weight:800;color:#0c5460;margin-bottom:5px;" id="metrica-ultimos">0</div>
+            <div style="font-size:1em;color:#0c5460;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Visitas hoy</div>
+        </div>
+        <div class="metrica-box" style="flex:1 1 200px;background:linear-gradient(135deg, #f8d7da 0%, #fd79a8 100%);border-radius:12px;padding:25px 20px;box-shadow:0 4px 15px rgba(0,0,0,0.1);text-align:center;border:1px solid #e84393;">
+            <div style="font-size:2.5em;font-weight:800;color:#721c24;margin-bottom:5px;" id="metrica-actualizaciones">0</div>
+            <div style="font-size:1em;color:#721c24;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Asistencias recientes</div>
+        </div>
+    </div>
+            <div style="font-size:1em;color:#721c24;">Asistencias recientes</div>
+        </div>
+    </div>
+
+    <div class="main-container">
+
+        <div id="navegacion">
+            <button id="btnRegistrar">Registrar Proveedores</button>
+            <button id="btnAsistencia">Asistencia Diaria</button>
+            <button id="btnVerGestionProveedores">Administrar Proveedores</button>
+            <button id="btnReportes">Reportes</button>
+        </div>
+
+        <div id="registroProveedores" class="seccion">
+            <h2>Registro de Proveedores</h2>
+            <form id="proveedor-form">
+                <div>
+                    <label for="nombre">Nombre:</label>
+                    <input type="text" id="nombre" required>
+                    <div class="error" id="error-nombre"></div>
+                </div>
+                <div>
+                    <label for="dias-visita">Días Visita:</label>
+                    <input type="text" id="dias-visita" placeholder="Lunes, Martes, Cada 15 días..." required>
+                    <small>Separar con comas</small>
+                    <div class="error" id="error-dias-visita"></div>
+                </div>
+                <div>
+                    <label for="fecha-inicio">Fecha Inicio (Cada X):</label>
+                    <input type="date" id="fecha-inicio">
+                    <div class="error" id="error-fecha-inicio"></div>
+                </div>
+                <div>
+                    <label for="tipo-visita">Tipo Visita:</label>
+                    <select id="tipo-visita" required>
+                        <option value="">--</option>
+                        <option>Visita Normal</option>
+                        <option>Preventa</option>
+                        <option>Entrega de Pedido</option>
+                        <option>Otro</option>
+                    </select>
+                    <div class="error" id="error-tipo-visita"></div>
+                </div>
+                <button type="submit">Agregar Proveedor</button>
+            </form>
+        </div>
+
+        <div id="asistenciaDiaria" class="seccion">
+            <h2>Proveedores Esperados para Hoy - <span id="fecha-hoy"></span></h2>
+            <table id="tabla-proveedores-hoy">
+                <thead><tr><th>Nombre</th><th>Tipo</th><th>¿Asistió?</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="gestionProveedores" class="seccion">
+            <h2>Administrar Proveedores</h2>
+            <div class="datos-actions">
+                <p>Guarda o recupera todos los datos de la aplicación (proveedores y asistencias).</p>
+                <button id="btnExportarDatos">Exportar Datos a Archivo</button>
+                <button id="btnImportarDatos">Importar Datos desde Archivo</button>
+                <input type="file" id="importFile" accept=".json,.txt" style="display: none;">
+                <p><small>Al importar, los datos actuales se reemplazarán con los del archivo.</small></p>
+            </div>
+            <p>Aquí puedes ver todos tus proveedores registrados y eliminar o editar los que necesites.</p>
+            <table id="tablaGestionProveedores">
+                <thead><tr><th>Nombre</th><th>Días Visita</th><th>Tipo</th><th>Acciones</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="reportes" class="seccion">
+            <h2>Reportes de Asistencia</h2>
+            <div id="botonesReportesPredefinidos">
+                <button id="btnReporteUltimos3Dias">Últimos 3 Días</button>
+                <button id="btnReporteUltimos7Dias">Últimos 7 Días</button>
+                <button id="btnReporteUltimos15Dias">Últimos 15 Días</button>
+                <button id="btnReporteUltimoMes">Último Mes</button>
+            </div>
+            <div id="reportePersonalizado" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+                <h3>Reporte Personalizado</h3>
+                <label for="fechaInicioReporte">Fecha de Inicio:</label><input type="date" id="fechaInicioReporte">
+                <label for="fechaFinReporte">Fecha de Fin:</label><input type="date" id="fechaFinReporte">
+                <button id="btnGenerarReportePersonalizado">Generar Reporte</button>
+            </div>
+            <div id="errorReporte" class="error"></div>
+            <div id="tablaReporte"></div>
+            <button id="btnExportarReporteCSV">Exportar Tabla a CSV</button>
+        </div>
+
+    </div>
+
+    <script>
+        // Probando múltiples configuraciones de API
+        const API_ENDPOINTS = [
+            'http://proveedores.hugor1n8n.duckdns.org:8080/api',
+            'https://proveedores.hugor1n8n.duckdns.org:8080/api',
+            'http://proveedores.hugor1n8n.duckdns.org:3002/api',
+            'https://proveedores.hugor1n8n.duckdns.org:3002/api'
+        ];
+        
+        let API_BASE = API_ENDPOINTS[0]; // Empezamos con el primero
+
+        // Variables globales
+        let proveedoresData = [];
+        let visitasData = [];
+        let asistenciasData = [];
+        let appInicializada = false;
+
+        // === FUNCIONES DE UI ===
+        function mostrarSpinner(mensaje) {
+            const spinner = document.getElementById('spinner-carga');
+            const mensajeElement = document.getElementById('mensaje-carga');
+            mensajeElement.textContent = mensaje || 'Cargando...';
+            spinner.style.display = 'flex';
+            document.getElementById('btnRefrescarDatos').disabled = true;
+        }
+
+        function ocultarSpinner() {
+            document.getElementById('spinner-carga').style.display = 'none';
+            document.getElementById('btnRefrescarDatos').disabled = false;
+        }
+
+        function mostrarSeccion(seccionId) {
+            const secciones = ['registroProveedores', 'asistenciaDiaria', 'gestionProveedores', 'reportes'];
+            secciones.forEach(id => {
+                const elemento = document.getElementById(id);
+                if (elemento) {
+                    elemento.style.display = id === seccionId ? 'block' : 'none';
+                }
+            });
+            
+            // Actualizar botones activos
+            document.querySelectorAll('#navegacion button').forEach(btn => {
+                btn.style.backgroundColor = '#dc3545';
+            });
+            
+            // Resaltar botón activo
+            const botones = {
+                'registroProveedores': 'btnRegistrar',
+                'asistenciaDiaria': 'btnAsistencia',
+                'gestionProveedores': 'btnVerGestionProveedores',
+                'reportes': 'btnReportes'
+            };
+            
+            if (botones[seccionId]) {
+                const botonActivo = document.getElementById(botones[seccionId]);
+                if (botonActivo) {
+                    botonActivo.style.backgroundColor = '#28a745';
+                }
+            }
+        }
+
+        // === VALIDACIONES DEL FORMULARIO (FUNCIONES QUE FALTABAN) ===
+        function validarFormulario() {
+            const nombre = document.getElementById('nombre');
+            const diasVisita = document.getElementById('dias-visita');
+            const tipoVisita = document.getElementById('tipo-visita');
+            
+            let valido = true;
+            
+            // Validar nombre
+            if (!nombre.value.trim() || nombre.value.trim().length < 2) {
+                mostrarError('error-nombre', 'El nombre debe tener al menos 2 caracteres');
+                nombre.style.borderColor = 'red';
+                valido = false;
+            } else {
+                ocultarError('error-nombre');
+                nombre.style.borderColor = '';
+            }
+            
+            // Validar días de visita
+            if (!diasVisita.value.trim()) {
+                mostrarError('error-dias-visita', 'Ingresa los días de visita');
+                diasVisita.style.borderColor = 'red';
+                valido = false;
+            } else {
+                ocultarError('error-dias-visita');
+                diasVisita.style.borderColor = '';
+            }
+            
+            // Validar tipo de visita
+            if (!tipoVisita.value) {
+                mostrarError('error-tipo-visita', 'Selecciona el tipo de visita');
+                tipoVisita.style.borderColor = 'red';
+                valido = false;
+            } else {
+                ocultarError('error-tipo-visita');
+                tipoVisita.style.borderColor = '';
+            }
+            
+            return valido;
+        }
+
+        function mostrarError(errorId, mensaje) {
+            const errorElement = document.getElementById(errorId);
+            if (errorElement) errorElement.textContent = mensaje;
+        }
+
+        function ocultarError(errorId) {
+            const errorElement = document.getElementById(errorId);
+            if (errorElement) errorElement.textContent = '';
+        }
+
+        // === VERIFICAR CONEXIÓN ===
+        async function probarEndpoint(url) {
+            try {
+                console.log(`🔍 Probando: ${url}/health`);
+                const res = await fetch(`${url}/health`, {
+                    signal: AbortSignal.timeout(5000),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (res.ok) {
+                    const data = await res.text();
+                    console.log(`✅ ÉXITO en ${url}:`, data);
+                    return { success: true, url, data };
+                } else {
+                    console.log(`❌ Error ${res.status} en ${url}`);
+                    return { success: false, url, error: `HTTP ${res.status}` };
+                }
+            } catch (err) {
+                console.log(`❌ Error en ${url}:`, err.message);
+                return { success: false, url, error: err.message };
+            }
+        }
+        
+        async function encontrarEndpointFuncional() {
+            console.log('🔍 Buscando endpoint funcional...');
+            
+            for (const endpoint of API_ENDPOINTS) {
+                const resultado = await probarEndpoint(endpoint);
+                if (resultado.success) {
+                    API_BASE = resultado.url;
+                    console.log(`🎯 Endpoint funcional encontrado: ${API_BASE}`);
+                    return true;
+                }
+            }
+            
+            console.log('❌ Ningún endpoint funciona');
+            return false;
+        }
+
+        async function verificarConexion() {
+            const indicator = document.getElementById('backend-status-indicator');
+            indicator.textContent = '⏳ Buscando backend disponible...';
+            indicator.style.background = '#ffc107';
+            indicator.style.color = '#212529';
+            
+            try {
+                const encontrado = await encontrarEndpointFuncional();
+                
+                if (encontrado) {
+                    indicator.textContent = `✅ Conectado: ${API_BASE}`;
+                    indicator.style.background = '#28a745';
+                    indicator.style.color = 'white';
+                    return true;
+                } else {
+                    throw new Error('Ningún endpoint disponible');
+                }
+                
+            } catch (err) {
+                console.error('❌ Error detallado de conexión:', err);
+                indicator.textContent = '❌ Backend no disponible';
+                indicator.style.background = '#dc3545';
+                indicator.style.color = 'white';
+                return false;
+            }
+        }
+
+        // === FUNCIONES DE PROVEEDORES ===
+        async function cargarProveedores() {
+            try {
+                const res = await fetch(`${API_BASE}/proveedores`, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!res.ok) {
+                    throw new Error(`Error del servidor: ${res.status}`);
+                }
+                
+                const data = await res.json();
+                proveedoresData = Array.isArray(data) ? data : [];
+                actualizarTablaProveedores();
+                console.log(`✅ Cargados ${proveedoresData.length} proveedores`);
+                return proveedoresData;
+                
+            } catch (err) {
+                console.error('Error al cargar proveedores:', err);
+                proveedoresData = [];
+                actualizarTablaProveedores();
+                throw err;
+            }
+        }
+
+        async function agregarProveedor(datosProveedor) {
+            mostrarSpinner('Guardando proveedor...');
+            try {
+                if (!datosProveedor.nombre || datosProveedor.nombre.trim().length < 2) {
+                    throw new Error('El nombre debe tener al menos 2 caracteres');
+                }
+                
+                const res = await fetch(`${API_BASE}/proveedores`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: datosProveedor.nombre.trim() })
+                });
+                
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || `Error HTTP ${res.status}`);
+                }
+                
+                const nuevoProveedor = await res.json();
+                console.log('✅ Proveedor creado:', nuevoProveedor);
+                
+                await crearVisitasParaProveedor(nuevoProveedor.id, datosProveedor);
+                await cargarTodosLosDatos();
+                
+                document.getElementById('proveedor-form').reset();
+                alert('✅ Proveedor y visitas agregados exitosamente');
+                
+            } catch (err) {
+                console.error('Error al agregar proveedor:', err);
+                alert('❌ Error al guardar proveedor: ' + err.message);
+            }
+            ocultarSpinner();
+        }
+
+        async function eliminarProveedor(id) {
+            if (!confirm('¿Estás seguro de eliminar este proveedor? Se eliminarán todas sus visitas y asistencias.')) return;
+            
+            mostrarSpinner('Eliminando proveedor...');
+            try {
+                const res = await fetch(`${API_BASE}/proveedores/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                
+                alert('Proveedor eliminado');
+                await cargarTodosLosDatos();
+                
+            } catch (err) {
+                alert('Error al eliminar proveedor: ' + err.message);
+            }
+            ocultarSpinner();
+        }
+
+        function editarProveedor(id) {
+            const proveedor = proveedoresData.find(p => p.id === id);
+            if (!proveedor) return;
+            
+            const nuevoNombre = prompt('Editar nombre del proveedor:', proveedor.nombre);
+            if (nuevoNombre && nuevoNombre.trim() && nuevoNombre.trim() !== proveedor.nombre) {
+                alert('Función de edición en desarrollo. Por ahora solo puedes eliminar y crear uno nuevo.');
+            }
+        }
+
+        // === FUNCIONES PARA VISITAS ===
+        async function crearVisitasParaProveedor(proveedorId, datosProveedor) {
+            const diasArray = datosProveedor.diasVisita.split(',').map(d => d.trim());
+            const fechaInicio = datosProveedor.fechaInicio || new Date().toISOString().split('T')[0];
+            const fechas = generarFechasVisitas(diasArray, fechaInicio, 30);
+            
+            for (const fecha of fechas) {
+                await fetch(`${API_BASE}/visitas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        proveedor_id: proveedorId,
+                        fecha: fecha,
+                        tipoVisita: datosProveedor.tipoVisita
+                    })
+                });
+            }
+        }
+
+        function generarFechasVisitas(diasSemana, fechaInicio, diasAdelante) {
+            const fechas = [];
+            const inicio = new Date(fechaInicio);
+            const diasNombres = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+            
+            for (let i = 0; i < diasAdelante; i++) {
+                const fecha = new Date(inicio);
+                fecha.setDate(inicio.getDate() + i);
+                const diaNombre = diasNombres[fecha.getDay()].toLowerCase();
+                
+                if (diasSemana.some(dia => dia.toLowerCase().includes(diaNombre))) {
+                    fechas.push(fecha.toISOString().split('T')[0]);
+                }
+            }
+            return fechas;
+        }
+
+        // === FUNCIONES PARA ASISTENCIA DIARIA ===
+        async function cargarProveedoresHoy() {
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('fecha-hoy').textContent = new Date().toLocaleDateString('es-ES');
+            
+            try {
+                const res = await fetch(`${API_BASE}/visitas?fecha=${hoy}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                
+                const visitasHoy = await res.json();
+                const tbody = document.querySelector('#tabla-proveedores-hoy tbody');
+                tbody.innerHTML = '';
+                
+                for (const visita of visitasHoy) {
+                    const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
+                    if (!proveedor) continue;
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${proveedor.nombre}</td>
+                        <td>${visita.tipoVisita}</td>
+                        <td class="asistencia-container">
+                            <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                            <span>No</span>
+                            <select class="asistencia-preventa-select" id="preventa-${visita.id}">
+                                <option value="">Sin preventa</option>
+                                <option value="Si">Sí hizo preventa</option>
+                                <option value="No">No hizo preventa</option>
+                            </select>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+                
+            } catch (err) {
+                console.error('Error al cargar proveedores de hoy:', err);
+            }
+        }
+
+        async function marcarAsistencia(visitaId, asistio) {
+            const checkbox = document.getElementById(`asistencia-${visitaId}`);
+            const span = checkbox.nextElementSibling;
+            const preventaSelect = document.getElementById(`preventa-${visitaId}`);
+            
+            span.textContent = asistio ? 'Sí' : 'No';
+            
+            try {
+                const datosAsistencia = {
+                    visita_id: visitaId,
+                    asistio: asistio ? 1 : 0,
+                    hizo_preventa: preventaSelect.value || null,
+                    estado_especifico: asistio ? 'A tiempo' : 'No asistió'
+                };
+                
+                const res = await fetch(`${API_BASE}/asistencias`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datosAsistencia)
+                });
+                
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                
+            } catch (err) {
+                console.error('Error al guardar asistencia:', err);
+                checkbox.checked = !asistio;
+                span.textContent = !asistio ? 'Sí' : 'No';
+            }
+        }
+
+        // === FUNCIONES GENERALES ===
+        function actualizarTablaProveedores() {
+            const tbody = document.querySelector('#tablaGestionProveedores tbody');
+            tbody.innerHTML = '';
+            
+            proveedoresData.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${p.nombre}</td>
+                    <td>Ver calendario</td>
+                    <td>Múltiples tipos</td>
+                    <td>
+                        <button class="btn-editar-proveedor" onclick="editarProveedor(${p.id})">Editar</button>
+                        <button class="btn-eliminar-proveedor" onclick="eliminarProveedor(${p.id})">Eliminar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function actualizarMetricasPanel() {
+            try {
+                const activos = proveedoresData.length;
+                const fechaHoy = new Date().toISOString().split('T')[0];
+                const visitasHoy = visitasData.filter(v => v.fecha === fechaHoy).length;
+                const asistenciasRecientes = asistenciasData.length;
+
+                document.getElementById('metrica-activos').textContent = activos;
+                document.getElementById('metrica-ultimos').textContent = visitasHoy;
+                document.getElementById('metrica-actualizaciones').textContent = asistenciasRecientes;
+            } catch (err) {
+                console.error('Error al actualizar métricas:', err);
+            }
+        }
+
+        async function cargarTodosLosDatos() {
+            mostrarSpinner('Sincronizando datos...');
+            try {
+                await cargarProveedores();
+                
+                try {
+                    const resVisitas = await fetch(`${API_BASE}/visitas`);
+                    if (resVisitas.ok) {
+                        visitasData = await resVisitas.json();
+                        console.log(`✅ Cargadas ${visitasData.length} visitas`);
+                    }
+                } catch (err) {
+                    console.warn('⚠️ No se pudieron cargar las visitas:', err);
+                    visitasData = [];
+                }
+                
+                try {
+                    const resAsistencias = await fetch(`${API_BASE}/asistencias`);
+                    if (resAsistencias.ok) {
+                        asistenciasData = await resAsistencias.json();
+                        console.log(`✅ Cargadas ${asistenciasData.length} asistencias`);
+                    }
+                } catch (err) {
+                    console.warn('⚠️ No se pudieron cargar las asistencias:', err);
+                    asistenciasData = [];
+                }
+                
+                actualizarMetricasPanel();
+                console.log('✅ Datos sincronizados correctamente');
+                
+            } catch (err) {
+                console.error('❌ Error al cargar datos:', err);
+                alert('⚠️ Error al sincronizar algunos datos. Revisa la conexión.');
+            }
+            ocultarSpinner();
+        }
+
+        // === INICIALIZACIÓN ===
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 Iniciando aplicación...');
+            
+            // Configurar navegación
+            document.getElementById('btnRegistrar').addEventListener('click', () => mostrarSeccion('registroProveedores'));
+            document.getElementById('btnAsistencia').addEventListener('click', () => {
+                mostrarSeccion('asistenciaDiaria');
+                if (appInicializada) cargarProveedoresHoy();
+            });
+            document.getElementById('btnVerGestionProveedores').addEventListener('click', () => mostrarSeccion('gestionProveedores'));
+            document.getElementById('btnReportes').addEventListener('click', () => mostrarSeccion('reportes'));
+
+            // Configurar formulario
+            document.getElementById('proveedor-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!validarFormulario()) return;
+
+                const datosProveedor = {
+                    nombre: document.getElementById('nombre').value.trim(),
+                    diasVisita: document.getElementById('dias-visita').value.trim(),
+                    fechaInicio: document.getElementById('fecha-inicio').value || null,
+                    tipoVisita: document.getElementById('tipo-visita').value
+                };
+
+                await agregarProveedor(datosProveedor);
+            });
+
+            // Botón refrescar
+            document.getElementById('btnRefrescarDatos').addEventListener('click', () => {
+                cargarTodosLosDatos();
+            });
+
+            // Inicializar aplicación
+            await verificarConexion();
+            await cargarTodosLosDatos();
+            mostrarSeccion('registroProveedores');
+            appInicializada = true;
+            console.log('✅ Aplicación lista');
+        });
+    </script>
+</body>
+</html>
