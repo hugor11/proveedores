@@ -1,0 +1,14 @@
+{
+  "name": "isabarrotes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Abarrotes y Carnicería Itzel - Proveedores (Netlify Functions + Netlify DB)",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo static",
+    "start": "netlify dev --live"
+  },
+  "dependencies": {
+    "@netlify/neon": "^0.7.2"
+  }
+}

@@ -1,0 +1,13 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Route nice /api/* paths to the single serverless function.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat" # Netlify resolver encuentra api.mjs
+  status = 200
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/neon"]

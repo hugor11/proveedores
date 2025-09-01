@@ -103,15 +103,15 @@
         #navegacion button:hover, #proveedor-form button[type="submit"]:hover { background-color: #c82333; }
         #botonesReportesPredefinidos button, #btnGenerarReportePersonalizado { background-color: #007bff; }
         #botonesReportesPredefinidos button:hover, #btnGenerarReportePersonalizado:hover { background-color: #0056b3; }
-        #btnExportarDatos { background-color: #28a745; } /* Verde */
+        #btnExportarDatos { background-color: #28a745; }
         #btnExportarDatos:hover { background-color: #218838; }
-        #btnImportarDatos { background-color: #ffc107; color: #212529; } /* Amarillo */
+        #btnImportarDatos { background-color: #ffc107; color: #212529; }
         #btnImportarDatos:hover { background-color: #e0a800; }
         .btn-eliminar-proveedor { background-color: #6c757d; padding: 5px 10px; font-size: 0.8rem; }
         .btn-eliminar-proveedor:hover { background-color: #5a6268; }
         .btn-editar-proveedor { background-color: #17a2b8; padding: 5px 10px; font-size: 0.8rem; margin-right: 5px;}
         .btn-editar-proveedor:hover { background-color: #138496;}
-        #btnExportarReporteCSV { background-color: #17a2b8; margin-top: 15px;} /* Azul claro */
+        #btnExportarReporteCSV { background-color: #17a2b8; margin-top: 15px;}
         #btnExportarReporteCSV:hover { background-color: #138496;}
         table { border-collapse: collapse; margin-top: 20px; width: 100%; }
         th, td { border: 1px solid #dee2e6; padding: 8px; text-align: left; vertical-align: middle; font-size: 0.9em; }
@@ -313,9 +313,6 @@
             <div style="font-size:1em;color:#721c24;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Asistencias recientes</div>
         </div>
     </div>
-            <div style="font-size:1em;color:#721c24;">Asistencias recientes</div>
-        </div>
-    </div>
 
     <div class="main-container">
 
@@ -335,9 +332,22 @@
                     <div class="error" id="error-nombre"></div>
                 </div>
                 <div>
-                    <label for="dias-visita">Días Visita:</label>
-                    <input type="text" id="dias-visita" placeholder="Lunes, Martes, Cada 15 días..." required>
-                    <small>Separar con comas</small>
+                    <label>Días de visita:</label>
+                    <div id="dias-semana" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+                        <label><input type="checkbox" name="diasSemana" value="1"> Lunes</label>
+                        <label><input type="checkbox" name="diasSemana" value="2"> Martes</label>
+                        <label><input type="checkbox" name="diasSemana" value="3"> Miércoles</label>
+                        <label><input type="checkbox" name="diasSemana" value="4"> Jueves</label>
+                        <label><input type="checkbox" name="diasSemana" value="5"> Viernes</label>
+                        <label><input type="checkbox" name="diasSemana" value="6"> Sábado</label>
+                        <label><input type="checkbox" name="diasSemana" value="0"> Domingo</label>
+                    </div>
+                    <label for="frecuencia-semanas">Frecuencia:</label>
+                    <select id="frecuencia-semanas">
+                        <option value="1">Semanal</option>
+                        <option value="2">Cada 2 semanas (Quincenal)</option>
+                        <option value="4">Cada 4 semanas (Mensual)</option>
+                    </select>
                     <div class="error" id="error-dias-visita"></div>
                 </div>
                 <div>
@@ -408,6 +418,8 @@
     <script>
         // Probando múltiples configuraciones de API
         const API_ENDPOINTS = [
+            '/api', // Netlify Functions (producción y dev con netlify dev)
+            'http://localhost:8888/api', // netlify dev proxy
             'http://proveedores.hugor1n8n.duckdns.org:8080/api',
             'https://proveedores.hugor1n8n.duckdns.org:8080/api',
             'http://proveedores.hugor1n8n.duckdns.org:3002/api',
@@ -466,15 +478,14 @@
             }
         }
 
-        // === VALIDACIONES DEL FORMULARIO (FUNCIONES QUE FALTABAN) ===
+        // === VALIDACIONES DEL FORMULARIO ===
         function validarFormulario() {
             const nombre = document.getElementById('nombre');
-            const diasVisita = document.getElementById('dias-visita');
+            const diasChecks = Array.from(document.querySelectorAll('input[name="diasSemana"]:checked'));
             const tipoVisita = document.getElementById('tipo-visita');
             
             let valido = true;
             
-            // Validar nombre
             if (!nombre.value.trim() || nombre.value.trim().length < 2) {
                 mostrarError('error-nombre', 'El nombre debe tener al menos 2 caracteres');
                 nombre.style.borderColor = 'red';
@@ -484,17 +495,13 @@
                 nombre.style.borderColor = '';
             }
             
-            // Validar días de visita
-            if (!diasVisita.value.trim()) {
-                mostrarError('error-dias-visita', 'Ingresa los días de visita');
-                diasVisita.style.borderColor = 'red';
+            if (diasChecks.length === 0) {
+                mostrarError('error-dias-visita', 'Selecciona al menos un día de visita');
                 valido = false;
             } else {
                 ocultarError('error-dias-visita');
-                diasVisita.style.borderColor = '';
             }
             
-            // Validar tipo de visita
             if (!tipoVisita.value) {
                 mostrarError('error-tipo-visita', 'Selecciona el tipo de visita');
                 tipoVisita.style.borderColor = 'red';
@@ -662,21 +669,35 @@
             ocultarSpinner();
         }
 
-        function editarProveedor(id) {
+        async function editarProveedor(id) {
             const proveedor = proveedoresData.find(p => p.id === id);
             if (!proveedor) return;
-            
             const nuevoNombre = prompt('Editar nombre del proveedor:', proveedor.nombre);
-            if (nuevoNombre && nuevoNombre.trim() && nuevoNombre.trim() !== proveedor.nombre) {
-                alert('Función de edición en desarrollo. Por ahora solo puedes eliminar y crear uno nuevo.');
+            if (!nuevoNombre || !nuevoNombre.trim() || nuevoNombre.trim() === proveedor.nombre) return;
+            mostrarSpinner('Actualizando proveedor...');
+            try {
+                const res = await fetch(`${API_BASE}/proveedores/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: nuevoNombre.trim() })
+                });
+                if (!res.ok) {
+                    const e = await res.json().catch(() => ({}));
+                    throw new Error(e.error || `HTTP ${res.status}`);
+                }
+                await cargarTodosLosDatos();
+            } catch (err) {
+                alert('Error al editar proveedor: ' + err.message);
             }
+            ocultarSpinner();
         }
 
         // === FUNCIONES PARA VISITAS ===
         async function crearVisitasParaProveedor(proveedorId, datosProveedor) {
-            const diasArray = datosProveedor.diasVisita.split(',').map(d => d.trim());
+            const diasSemana = Array.isArray(datosProveedor.diasSemana) ? datosProveedor.diasSemana : [];
+            const frecuenciaSemanas = Number(datosProveedor.frecuenciaSemanas || 1);
             const fechaInicio = datosProveedor.fechaInicio || new Date().toISOString().split('T')[0];
-            const fechas = generarFechasVisitas(diasArray, fechaInicio, 30);
+            const fechas = generarFechasVisitas(diasSemana, fechaInicio, 30, frecuenciaSemanas);
             
             for (const fecha of fechas) {
                 await fetch(`${API_BASE}/visitas`, {
@@ -691,21 +712,38 @@
             }
         }
 
-        function generarFechasVisitas(diasSemana, fechaInicio, diasAdelante) {
+        function generarFechasVisitas(diasSemanaNumeros, fechaInicio, diasAdelante, frecuenciaSemanas) {
             const fechas = [];
             const inicio = new Date(fechaInicio);
-            const diasNombres = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-            
-            for (let i = 0; i < diasAdelante; i++) {
-                const fecha = new Date(inicio);
-                fecha.setDate(inicio.getDate() + i);
-                const diaNombre = diasNombres[fecha.getDay()].toLowerCase();
-                
-                if (diasSemana.some(dia => dia.toLowerCase().includes(diaNombre))) {
-                    fechas.push(fecha.toISOString().split('T')[0]);
+            const pasoDias = 7 * Math.max(1, Number(frecuenciaSemanas || 1));
+
+            // Encontrar la primera semana de referencia donde cae alguno de los días
+            const primeros7 = [];
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(inicio);
+                d.setDate(inicio.getDate() + i);
+                if (diasSemanaNumeros.includes(d.getDay())) {
+                    primeros7.push(new Date(d));
                 }
             }
-            return fechas;
+            const referencia = primeros7.length ? primeros7[0] : inicio;
+
+            for (let offset = 0; offset <= diasAdelante; offset += pasoDias) {
+                const base = new Date(referencia);
+                base.setDate(referencia.getDate() + offset);
+                // Añadir los días de esa semana
+                for (const dow of diasSemanaNumeros) {
+                    const f = new Date(base);
+                    const diff = (dow - f.getDay() + 7) % 7; // días hasta dow dentro de la semana
+                    f.setDate(f.getDate() + diff);
+                    if ((f - inicio) / (24*3600*1000) <= diasAdelante) {
+                        fechas.push(f.toISOString().split('T')[0]);
+                    }
+                }
+            }
+
+            // Quitar duplicados y ordenar
+            return Array.from(new Set(fechas)).sort();
         }
 
         // === FUNCIONES PARA ASISTENCIA DIARIA ===
@@ -740,6 +778,19 @@
                         </td>
                     `;
                     tbody.appendChild(tr);
+
+                    const prev = asistenciasData
+                        .filter(a => a.visita_id === visita.id)
+                        .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+                    if (prev) {
+                        const chk = document.getElementById(`asistencia-${visita.id}`);
+                        const span = chk.nextElementSibling;
+                        const sel = document.getElementById(`preventa-${visita.id}`);
+                        const checked = Number(prev.asistio) === 1;
+                        chk.checked = checked;
+                        span.textContent = checked ? 'Sí' : 'No';
+                        if (prev.hizo_preventa) sel.value = prev.hizo_preventa;
+                    }
                 }
                 
             } catch (err) {
@@ -769,6 +820,35 @@
                 });
                 
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                // Lógica: si esta visita es de Preventa y marcó "Sí hizo preventa",
+                // crear automáticamente visita para el día siguiente de tipo "Entrega de Pedido" si no existe.
+                const visita = visitasData.find(v => v.id === visitaId);
+                const hizoPreventaSi = (preventaSelect.value || '').toLowerCase() === 'si';
+                if (visita && String(visita.tipoVisita).toLowerCase().includes('preventa') && hizoPreventaSi) {
+                    const hoy = new Date(visita.fecha);
+                    const manana = new Date(hoy);
+                    manana.setDate(hoy.getDate() + 1);
+                    const fechaManana = manana.toISOString().split('T')[0];
+                    // Evitar duplicados
+                    const existe = visitasData.some(v => v.proveedor_id === visita.proveedor_id && v.fecha === fechaManana && String(v.tipoVisita).toLowerCase().includes('entrega'));
+                    if (!existe) {
+                        await fetch(`${API_BASE}/visitas`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                proveedor_id: visita.proveedor_id,
+                                fecha: fechaManana,
+                                tipoVisita: 'Entrega de Pedido'
+                            })
+                        });
+                        // Refrescar cache local
+                        try {
+                            const resVis = await fetch(`${API_BASE}/visitas`);
+                            if (resVis.ok) visitasData = await resVis.json();
+                        } catch {}
+                    }
+                }
                 
             } catch (err) {
                 console.error('Error al guardar asistencia:', err);
@@ -853,7 +933,6 @@
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('🚀 Iniciando aplicación...');
             
-            // Configurar navegación
             document.getElementById('btnRegistrar').addEventListener('click', () => mostrarSeccion('registroProveedores'));
             document.getElementById('btnAsistencia').addEventListener('click', () => {
                 mostrarSeccion('asistenciaDiaria');
@@ -862,14 +941,14 @@
             document.getElementById('btnVerGestionProveedores').addEventListener('click', () => mostrarSeccion('gestionProveedores'));
             document.getElementById('btnReportes').addEventListener('click', () => mostrarSeccion('reportes'));
 
-            // Configurar formulario
-            document.getElementById('proveedor-form').addEventListener('submit', async (e) => {
+        document.getElementById('proveedor-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 if (!validarFormulario()) return;
 
                 const datosProveedor = {
                     nombre: document.getElementById('nombre').value.trim(),
-                    diasVisita: document.getElementById('dias-visita').value.trim(),
+            diasSemana: Array.from(document.querySelectorAll('input[name="diasSemana"]:checked')).map(el => Number(el.value)),
+            frecuenciaSemanas: Number(document.getElementById('frecuencia-semanas').value),
                     fechaInicio: document.getElementById('fecha-inicio').value || null,
                     tipoVisita: document.getElementById('tipo-visita').value
                 };
@@ -877,18 +956,166 @@
                 await agregarProveedor(datosProveedor);
             });
 
-            // Botón refrescar
             document.getElementById('btnRefrescarDatos').addEventListener('click', () => {
                 cargarTodosLosDatos();
             });
 
-            // Inicializar aplicación
+            document.getElementById('btnExportarDatos').addEventListener('click', exportarDatos);
+            document.getElementById('btnImportarDatos').addEventListener('click', () => document.getElementById('importFile').click());
+            document.getElementById('importFile').addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) importarDatosDesdeArchivo(file);
+                e.target.value = '';
+            });
+
+            function aISO(fecha) { return new Date(fecha).toISOString().split('T')[0]; }
+            function setFechasYGenerar(dias) {
+                const fin = new Date();
+                const ini = new Date();
+                ini.setDate(fin.getDate() - (dias - 1));
+                document.getElementById('fechaInicioReporte').value = aISO(ini);
+                document.getElementById('fechaFinReporte').value = aISO(fin);
+                generarReporte(aISO(ini), aISO(fin));
+            }
+            document.getElementById('btnReporteUltimos3Dias').addEventListener('click', () => setFechasYGenerar(3));
+            document.getElementById('btnReporteUltimos7Dias').addEventListener('click', () => setFechasYGenerar(7));
+            document.getElementById('btnReporteUltimos15Dias').addEventListener('click', () => setFechasYGenerar(15));
+            document.getElementById('btnReporteUltimoMes').addEventListener('click', () => setFechasYGenerar(30));
+            document.getElementById('btnGenerarReportePersonalizado').addEventListener('click', () => {
+                const fi = document.getElementById('fechaInicioReporte').value;
+                const ff = document.getElementById('fechaFinReporte').value;
+                if (!fi || !ff) { document.getElementById('errorReporte').textContent = 'Selecciona ambas fechas'; return; }
+                generarReporte(fi, ff);
+            });
+            document.getElementById('btnExportarReporteCSV').addEventListener('click', exportarTablaReporteCSV);
+
             await verificarConexion();
             await cargarTodosLosDatos();
             mostrarSeccion('registroProveedores');
             appInicializada = true;
             console.log('✅ Aplicación lista');
         });
+
+        // === EXPORTAR / IMPORTAR ===
+        async function exportarDatos() {
+            mostrarSpinner('Exportando datos...');
+            try {
+                const res = await fetch(`${API_BASE}/admin/export`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const ts = new Date().toISOString().replace(/[:T]/g, '-').split('.')[0];
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup-proveedores-${ts}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Error al exportar: ' + err.message);
+            }
+            ocultarSpinner();
+        }
+
+        async function importarDatosDesdeArchivo(file) {
+            try {
+                const texto = await file.text();
+                const data = JSON.parse(texto);
+                if (!confirm('Esto reemplazará todos los datos actuales. ¿Continuar?')) return;
+                mostrarSpinner('Importando datos...');
+                const res = await fetch(`${API_BASE}/admin/import`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                await cargarTodosLosDatos();
+                alert('Datos importados');
+            } catch (err) {
+                alert('Error al importar: ' + (err.message || 'Archivo inválido'));
+            }
+            ocultarSpinner();
+        }
+
+        // === REPORTES ===
+        function aISO(fecha) { return new Date(fecha).toISOString().split('T')[0]; }
+        function rangoFechasISO(desde, hasta) {
+            const d = new Date(desde), h = new Date(hasta);
+            const res = [];
+            for (let x = new Date(d); x <= h; x.setDate(x.getDate() + 1)) {
+                res.push(x.toISOString().split('T')[0]);
+            }
+            return res;
+        }
+
+        function generarReporte(fechaInicio, fechaFin) {
+            const inicio = new Date(fechaInicio);
+            const fin = new Date(fechaFin);
+            if (isNaN(inicio) || isNaN(fin) || inicio > fin) {
+                document.getElementById('errorReporte').textContent = 'Rango de fechas inválido';
+                return;
+            }
+            document.getElementById('errorReporte').textContent = '';
+            const fechas = rangoFechasISO(inicio, fin);
+            const provById = new Map(proveedoresData.map(p => [p.id, p]));
+            const visitasByFecha = visitasData.reduce((acc, v) => {
+                (acc[v.fecha] ||= []).push(v);
+                return acc;
+            }, {});
+            const asistByVisita = asistenciasData.reduce((acc, a) => {
+                (acc[a.visita_id] ||= []).push(a);
+                return acc;
+            }, {});
+
+            const rows = [];
+            for (const f of fechas) {
+                const visitasF = visitsafe(visitasByFecha[f]);
+                for (const v of visitasF) {
+                    const p = provById.get(v.proveedor_id);
+                    const ultA = visitsafe(asistByVisita[v.id]).sort((a,b)=> (b.id||0)-(a.id||0))[0];
+                    rows.push({
+                        fecha: f,
+                        proveedor: p ? p.nombre : '—',
+                        tipo: v.tipoVisita || '—',
+                        asistio: ultA ? (Number(ultA.asistio) === 1 ? 'Sí' : 'No') : '—',
+                        preventa: ultA && ultA.hizo_preventa ? ultA.hizo_preventa : '—',
+                        estado: ultA && ultA.estado_especifico ? ultA.estado_especifico : '—'
+                    });
+                }
+            }
+
+            renderTablaReporte(rows);
+        }
+
+        function visitsafe(arr) { return Array.isArray(arr) ? arr : []; }
+
+        function renderTablaReporte(rows) {
+            const cont = document.getElementById('tablaReporte');
+            if (!rows.length) { cont.innerHTML = '<p>No hay datos para el rango seleccionado.</p>'; return; }
+            let html = '<table><thead><tr>' +
+                '<th>Fecha</th><th>Proveedor</th><th>Tipo</th><th>Asistió</th><th>Preventa</th><th>Estado</th>' +
+                '</tr></thead><tbody>';
+            for (const r of rows) {
+                html += `<tr><td>${r.fecha}</td><td>${r.proveedor}</td><td>${r.tipo}</td><td>${r.asistio}</td><td>${r.preventa}</td><td>${r.estado}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            cont.innerHTML = html;
+        }
+
+        function exportarTablaReporteCSV() {
+            const cont = document.getElementById('tablaReporte');
+            const table = cont.querySelector('table');
+            if (!table) { alert('No hay tabla para exportar'); return; }
+            const rows = Array.from(table.querySelectorAll('tr')).map(tr => Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent));
+            const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'reporte_asistencias.csv';
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
