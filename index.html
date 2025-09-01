@@ -437,6 +437,8 @@
                 <button id="btnReporteUltimos7Dias">Últimos 7 Días</button>
                 <button id="btnReporteUltimos15Dias">Últimos 15 Días</button>
                 <button id="btnReporteUltimoMes">Último Mes</button>
+                <button id="btnReporteUltimos5Dias">Últimos 5 Días</button>
+                <button id="btnReporteUltimos6Dias">Últimos 6 Días</button>
             </div>
             <div id="reportePersonalizado" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
                 <h3>Reporte Personalizado</h3>
@@ -854,6 +856,7 @@
                         <td>${visita.tipoVisita || 'Visita'}</td>
                         <td class="asistencia-container">
                             <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                            <label for="asistencia-${visita.id}">Asistió</label>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -886,12 +889,13 @@
                     const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
                     if (!proveedor) continue;
                     const tr = document.createElement('tr');
-                                        tr.innerHTML = `
-                                                <td>${proveedor.nombre}</td>
-                                                <td>${visita.tipoVisita || 'Visita Normal'}</td>
-                                    <td class="asistencia-container">
-                                        <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
-                                    </td>`;
+                    tr.innerHTML = `
+                        <td>${proveedor.nombre}</td>
+                        <td>${visita.tipoVisita || 'Visita Normal'}</td>
+                        <td class="asistencia-container">
+                            <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                            <label for="asistencia-${visita.id}">Asistió</label>
+                        </td>`;
                     tbody.appendChild(tr);
 
                     // Prefill asistencia si existe un registro previo
@@ -1115,6 +1119,8 @@
             document.getElementById('btnReporteUltimos7Dias').addEventListener('click', () => setFechasYGenerar(7));
             document.getElementById('btnReporteUltimos15Dias').addEventListener('click', () => setFechasYGenerar(15));
             document.getElementById('btnReporteUltimoMes').addEventListener('click', () => setFechasYGenerar(30));
+            const btn5 = document.getElementById('btnReporteUltimos5Dias'); if (btn5) btn5.addEventListener('click', () => setFechasYGenerar(5));
+            const btn6 = document.getElementById('btnReporteUltimos6Dias'); if (btn6) btn6.addEventListener('click', () => setFechasYGenerar(6));
             document.getElementById('btnGenerarReportePersonalizado').addEventListener('click', () => {
                 const fi = document.getElementById('fechaInicioReporte').value;
                 const ff = document.getElementById('fechaFinReporte').value;
@@ -1275,7 +1281,7 @@
             return res;
         }
 
-        function generarReporte(fechaInicio, fechaFin) {
+        async function generarReporte(fechaInicio, fechaFin) {
             const inicio = new Date(fechaInicio);
             const fin = new Date(fechaFin);
             if (isNaN(inicio) || isNaN(fin) || inicio > fin) {
@@ -1283,35 +1289,49 @@
                 return;
             }
             document.getElementById('errorReporte').textContent = '';
-            const fechas = rangoFechasISO(inicio, fin);
-            const provById = new Map(proveedoresData.map(p => [p.id, p]));
-            const visitasByFecha = visitasData.reduce((acc, v) => {
-                (acc[v.fecha] ||= []).push(v);
-                return acc;
-            }, {});
-            const asistByVisita = asistenciasData.reduce((acc, a) => {
-                (acc[a.visita_id] ||= []).push(a);
-                return acc;
-            }, {});
-
-            const rows = [];
-            for (const f of fechas) {
-                const visitasF = visitsafe(visitasByFecha[f]);
-                for (const v of visitasF) {
-                    const p = provById.get(v.proveedor_id);
-                    const ultA = visitsafe(asistByVisita[v.id]).sort((a,b)=> (b.id||0)-(a.id||0))[0];
-                    rows.push({
-                        fecha: f,
-                        proveedor: p ? p.nombre : '—',
-                        tipo: v.tipoVisita || '—',
-                        asistio: ultA ? (Number(ultA.asistio) === 1 ? 'Sí' : 'No') : '—',
-                        preventa: ultA && ultA.hizo_preventa ? ultA.hizo_preventa : '—',
-                        estado: ultA && ultA.estado_especifico ? ultA.estado_especifico : '—'
-                    });
+            const fechas = rangoFechasISO(inicio, fin); // array de YYYY-MM-DD
+            mostrarSpinner('Generando reporte...');
+            try {
+                // asegurar proveedores y asistencias frescos
+                if (!proveedoresData.length) {
+                    await cargarProveedores();
                 }
-            }
+                try {
+                    const resAs = await fetch(`${API_BASE}/asistencias`);
+                    if (resAs.ok) asistenciasData = await resAs.json();
+                } catch {}
 
-            renderTablaReporte(rows);
+                const provById = new Map(proveedoresData.map(p => [p.id, p]));
+                const asistByVisita = asistenciasData.reduce((acc, a) => {
+                    (acc[a.visita_id] ||= []).push(a);
+                    return acc;
+                }, {});
+
+                const rows = [];
+                // Obtener visitas por día con autogen=1 para que existan
+                for (const f of fechas) {
+                    try {
+                        const res = await fetch(`${API_BASE}/visitas?fecha=${f}&autogen=1`);
+                        if (!res.ok) continue;
+                        const visitasF = await res.json();
+                        for (const v of visitasF) {
+                            const p = provById.get(v.proveedor_id);
+                            const ultA = visitsafe(asistByVisita[v.id]).sort((a,b)=> (b.id||0)-(a.id||0))[0];
+                            rows.push({
+                                fecha: f,
+                                proveedor: p ? p.nombre : '—',
+                                tipo: v.tipoVisita || '—',
+                                asistio: ultA ? (Number(ultA.asistio) === 1 ? 'Sí' : 'No') : 'No',
+                                preventa: ultA && ultA.hizo_preventa ? ultA.hizo_preventa : '—',
+                                estado: ultA && ultA.estado_especifico ? ultA.estado_especifico : '—'
+                            });
+                        }
+                    } catch {}
+                }
+                renderTablaReporte(rows);
+            } finally {
+                ocultarSpinner();
+            }
         }
 
         function visitsafe(arr) { return Array.isArray(arr) ? arr : []; }
