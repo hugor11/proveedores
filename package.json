@@ -9,6 +9,6 @@
     "start": "netlify dev --live"
   },
   "dependencies": {
-    "@netlify/neon": "^0.7.2"
+  "@netlify/neon": "^0.6.0"
   }
 }
