@@ -384,7 +384,7 @@
                 </select>
             </div>
             <div id="asistencia-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-                <strong>Agregar visita manual para hoy:</strong>
+                <strong>Agregar visita manual para fecha seleccionada:</strong>
                 <select id="selectProveedorHoy" style="min-width:220px;"></select>
                 <select id="selectTipoHoy">
                     <option>Visita Normal</option>
@@ -393,6 +393,14 @@
                     <option>Otro</option>
                 </select>
                 <button id="btnAgregarVisitaHoy" style="background:#17a2b8;">Agregar</button>
+                <span style="margin-left:10px;"><strong>Crear para TODOS:</strong></span>
+                <select id="selectTipoTodos">
+                    <option>Visita Normal</option>
+                    <option>Preventa</option>
+                    <option>Entrega de Pedido</option>
+                    <option>Otro</option>
+                </select>
+                <button id="btnCrearTodosFecha" style="background:#28a745;">Crear visitas (todos)</button>
             </div>
             <div id="asistencia-empty" style="display:none;color:#6c757d;margin-bottom:8px;">No hay visitas programadas para hoy.</div>
             <table id="tabla-proveedores-hoy">
@@ -891,6 +899,20 @@
                             </select>
                         </td>`;
                     tbody.appendChild(tr);
+
+                    // Prefill asistencia si existe un registro previo
+                    const prev = asistenciasData
+                        .filter(a => a.visita_id === visita.id)
+                        .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+                    if (prev) {
+                        const chk = document.getElementById(`asistencia-${visita.id}`);
+                        const span = chk.nextElementSibling;
+                        const sel = document.getElementById(`preventa-${visita.id}`);
+                        const checked = Number(prev.asistio) === 1;
+                        chk.checked = checked;
+                        span.textContent = checked ? 'Sí' : 'No';
+                        if (prev.hizo_preventa) sel.value = prev.hizo_preventa;
+                    }
                 }
                 const empty = document.getElementById('asistencia-empty');
                 if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
@@ -925,10 +947,11 @@
                 const visita = visitasData.find(v => v.id === visitaId);
                 const hizoPreventaSi = (preventaSelect.value || '').toLowerCase() === 'si';
                 if (visita && String(visita.tipoVisita).toLowerCase().includes('preventa') && hizoPreventaSi) {
-                    const hoy = new Date(visita.fecha);
-                    const manana = new Date(hoy);
-                    manana.setDate(hoy.getDate() + 1);
-                    const fechaManana = manana.toISOString().split('T')[0];
+                    // Evitar sesgos UTC: usar medianoche local
+                    const hoyLocal = new Date(`${visita.fecha}T00:00:00`);
+                    const manana = new Date(hoyLocal);
+                    manana.setDate(hoyLocal.getDate() + 1);
+                    const fechaManana = localISO(manana);
                     // Evitar duplicados
                     const existe = visitasData.some(v => v.proveedor_id === visita.proveedor_id && v.fecha === fechaManana && String(v.tipoVisita).toLowerCase().includes('entrega'));
                     if (!existe) {
@@ -1052,9 +1075,6 @@
             document.getElementById('btnVerGestionProveedores').addEventListener('click', () => mostrarSeccion('gestionProveedores'));
             document.getElementById('btnReportes').addEventListener('click', () => mostrarSeccion('reportes'));
 
-                        const empty = document.getElementById('asistencia-empty');
-                        if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
-
         // Toggle UI de patrón
         const radios = document.querySelectorAll('input[name="patronVisita"]');
         const panelSem = document.getElementById('panel-semanal');
@@ -1084,7 +1104,8 @@
             document.getElementById('btnRefrescarDatos').addEventListener('click', async () => {
                 await verificarConexion();
                 await cargarTodosLosDatos();
-                await cargarProveedoresHoy();
+                const f = document.getElementById('asistenciaFecha')?.value || localISO(new Date());
+                await cargarProveedoresDeFecha(f);
             });
 
             document.getElementById('btnExportarDatos').addEventListener('click', exportarDatos);
@@ -1153,7 +1174,7 @@
                 minsSel.addEventListener('change', () => { if (chk.checked) startAuto(); });
             }
 
-            // Handler para agregar visita manual hoy
+            // Handler para agregar visita manual en fecha seleccionada
             const btnAddHoy = document.getElementById('btnAgregarVisitaHoy');
             if (btnAddHoy) {
                 btnAddHoy.addEventListener('click', async () => {
@@ -1161,18 +1182,42 @@
                     const tipoSel = document.getElementById('selectTipoHoy');
                     const proveedor_id = Number(provSel.value);
                     const tipoVisita = tipoSel.value || 'Visita Normal';
+                    const fecha = document.getElementById('asistenciaFecha')?.value || localISO(new Date());
                     if (!proveedor_id) { alert('Selecciona un proveedor'); return; }
                     try {
                         await fetch(`${API_BASE}/visitas`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ proveedor_id, fecha: localISO(new Date()), tipoVisita })
+                            body: JSON.stringify({ proveedor_id, fecha, tipoVisita })
                         });
                         // Refrescar visitas y tabla de hoy
                         const resVis = await fetch(`${API_BASE}/visitas`);
                         if (resVis.ok) visitasData = await resVis.json();
-                        await cargarProveedoresHoy();
+                        await cargarProveedoresDeFecha(fecha);
                     } catch (e) { alert('No se pudo crear la visita: ' + e.message); }
+                });
+            }
+            // Handler para crear visitas para TODOS los proveedores en la fecha seleccionada
+            const btnTodos = document.getElementById('btnCrearTodosFecha');
+            if (btnTodos) {
+                btnTodos.addEventListener('click', async () => {
+                    const fecha = document.getElementById('asistenciaFecha')?.value || localISO(new Date());
+                    const tipoVisita = document.getElementById('selectTipoTodos')?.value || 'Visita Normal';
+                    if (!proveedoresData.length) { alert('No hay proveedores'); return; }
+                    try {
+                        for (const p of proveedoresData) {
+                            // Evitar duplicados en esa fecha
+                            const ya = visitasData.some(v => v.proveedor_id === p.id && v.fecha === fecha && v.tipoVisita === tipoVisita);
+                            if (ya) continue;
+                            await fetch(`${API_BASE}/visitas`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ proveedor_id: p.id, fecha, tipoVisita })
+                            });
+                        }
+                        const resVis = await fetch(`${API_BASE}/visitas`);
+                        if (resVis.ok) visitasData = await resVis.json();
+                        await cargarProveedoresDeFecha(fecha);
+                    } catch (e) { alert('Error creando visitas: ' + e.message); }
                 });
             }
             console.log('✅ Aplicación lista');
