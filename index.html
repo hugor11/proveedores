@@ -332,22 +332,24 @@
                     <div class="error" id="error-nombre"></div>
                 </div>
                 <div>
-                    <label>Días de visita:</label>
-                    <div id="dias-semana" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-                        <label><input type="checkbox" name="diasSemana" value="1"> Lunes</label>
-                        <label><input type="checkbox" name="diasSemana" value="2"> Martes</label>
-                        <label><input type="checkbox" name="diasSemana" value="3"> Miércoles</label>
-                        <label><input type="checkbox" name="diasSemana" value="4"> Jueves</label>
-                        <label><input type="checkbox" name="diasSemana" value="5"> Viernes</label>
-                        <label><input type="checkbox" name="diasSemana" value="6"> Sábado</label>
-                        <label><input type="checkbox" name="diasSemana" value="0"> Domingo</label>
+                    <label>Frecuencia de visitas:</label>
+                    <div id="patron-visita" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                        <label><input type="radio" name="patronVisita" value="daily"> Diario</label>
+                        <label><input type="radio" name="patronVisita" value="weekly" checked> Semanal (elige día/s)</label>
+                        <div id="panel-semanal" style="margin-left:15px;display:flex;flex-wrap:wrap;gap:10px;">
+                            <label><input type="checkbox" name="diasSemana" value="1"> Lunes</label>
+                            <label><input type="checkbox" name="diasSemana" value="2"> Martes</label>
+                            <label><input type="checkbox" name="diasSemana" value="3"> Miércoles</label>
+                            <label><input type="checkbox" name="diasSemana" value="4"> Jueves</label>
+                            <label><input type="checkbox" name="diasSemana" value="5"> Viernes</label>
+                            <label><input type="checkbox" name="diasSemana" value="6"> Sábado</label>
+                            <label><input type="checkbox" name="diasSemana" value="0"> Domingo</label>
+                        </div>
+                        <label><input type="radio" name="patronVisita" value="everyNDays"> Cada N días</label>
+                        <div id="panel-cada-n" style="margin-left:15px;display:none;">
+                            <input type="number" id="cada-n-dias" min="2" value="2" style="width:120px;"> días
+                        </div>
                     </div>
-                    <label for="frecuencia-semanas">Frecuencia:</label>
-                    <select id="frecuencia-semanas">
-                        <option value="1">Semanal</option>
-                        <option value="2">Cada 2 semanas (Quincenal)</option>
-                        <option value="4">Cada 4 semanas (Mensual)</option>
-                    </select>
                     <div class="error" id="error-dias-visita"></div>
                 </div>
                 <div>
@@ -371,7 +373,16 @@
         </div>
 
         <div id="asistenciaDiaria" class="seccion">
-            <h2>Proveedores Esperados para Hoy - <span id="fecha-hoy"></span></h2>
+            <h2>Proveedores Esperados - <span id="fecha-hoy"></span></h2>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+                <label>Fecha: <input type="date" id="asistenciaFecha"></label>
+                <label><input type="checkbox" id="autoRefreshChk"> Auto‑refrescar</label>
+                <select id="autoRefreshMins">
+                    <option value="1">cada 1 min</option>
+                    <option value="2" selected>cada 2 min</option>
+                    <option value="5">cada 5 min</option>
+                </select>
+            </div>
             <div id="asistencia-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
                 <strong>Agregar visita manual para hoy:</strong>
                 <select id="selectProveedorHoy" style="min-width:220px;"></select>
@@ -500,6 +511,7 @@
         // === VALIDACIONES DEL FORMULARIO ===
         function validarFormulario() {
             const nombre = document.getElementById('nombre');
+            const patron = (document.querySelector('input[name="patronVisita"]:checked')||{}).value;
             const diasChecks = Array.from(document.querySelectorAll('input[name="diasSemana"]:checked'));
             const tipoVisita = document.getElementById('tipo-visita');
             
@@ -514,9 +526,13 @@
                 nombre.style.borderColor = '';
             }
             
-            if (diasChecks.length === 0) {
-                mostrarError('error-dias-visita', 'Selecciona al menos un día de visita');
+            if (patron === 'weekly' && diasChecks.length === 0) {
+                mostrarError('error-dias-visita', 'Selecciona al menos un día');
                 valido = false;
+            } else if (patron === 'everyNDays') {
+                const n = Number(document.getElementById('cada-n-dias').value);
+                if (!n || n < 2) { mostrarError('error-dias-visita', 'Elige N ≥ 2'); valido = false; }
+                else ocultarError('error-dias-visita');
             } else {
                 ocultarError('error-dias-visita');
             }
@@ -726,10 +742,18 @@
 
         // === FUNCIONES PARA VISITAS ===
         async function crearVisitasParaProveedor(proveedorId, datosProveedor) {
-            const diasSemana = Array.isArray(datosProveedor.diasSemana) ? datosProveedor.diasSemana : [];
-            const frecuenciaSemanas = Number(datosProveedor.frecuenciaSemanas || 1);
             const fechaInicio = datosProveedor.fechaInicio || localISO(new Date());
-            const fechas = generarFechasVisitas(diasSemana, fechaInicio, 30, frecuenciaSemanas);
+            const patron = datosProveedor.patron || 'weekly';
+            let fechas = [];
+            if (patron === 'daily') {
+                fechas = generarCadaNDias(fechaInicio, 1, 30);
+            } else if (patron === 'everyNDays') {
+                const n = Math.max(2, Number(datosProveedor.cadaNDias || 2));
+                fechas = generarCadaNDias(fechaInicio, n, 30);
+            } else { // weekly
+                const diasSemana = Array.isArray(datosProveedor.diasSemana) ? datosProveedor.diasSemana : [];
+                fechas = generarFechasSemanal(diasSemana, fechaInicio, 30, 1);
+            }
             
             for (const fecha of fechas) {
                 await fetch(`${API_BASE}/visitas`, {
@@ -744,7 +768,7 @@
             }
         }
 
-    function generarFechasVisitas(diasSemanaNumeros, fechaInicio, diasAdelante, frecuenciaSemanas) {
+    function generarFechasSemanal(diasSemanaNumeros, fechaInicio, diasAdelante, frecuenciaSemanas) {
             const fechas = [];
             const inicio = new Date(fechaInicio);
             const pasoDias = 7 * Math.max(1, Number(frecuenciaSemanas || 1));
@@ -778,8 +802,19 @@
             return Array.from(new Set(fechas)).sort();
         }
 
+        function generarCadaNDias(fechaInicio, nDias, diasAdelante) {
+            const fechas = [];
+            const inicio = new Date(fechaInicio);
+            for (let i = 0; i <= diasAdelante; i += nDias) {
+                const f = new Date(inicio);
+                f.setDate(inicio.getDate() + i);
+                fechas.push(localISO(f));
+            }
+            return fechas;
+        }
+
         // === FUNCIONES PARA ASISTENCIA DIARIA ===
-        async function cargarProveedoresHoy() {
+    async function cargarProveedoresHoy() {
             const hoy = localISO(new Date());
             document.getElementById('fecha-hoy').textContent = new Date().toLocaleDateString('es-ES');
             
@@ -828,6 +863,38 @@
             } catch (err) {
                 console.error('Error al cargar proveedores de hoy:', err);
             }
+        }
+
+        async function cargarProveedoresDeFecha(fechaISO) {
+            const fecha = fechaISO || localISO(new Date());
+            document.getElementById('fecha-hoy').textContent = new Date(fecha).toLocaleDateString('es-ES');
+            try {
+                const res = await fetch(`${API_BASE}/visitas?fecha=${fecha}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const visitasDia = await res.json();
+                const tbody = document.querySelector('#tabla-proveedores-hoy tbody');
+                tbody.innerHTML = '';
+                for (const visita of visitasDia) {
+                    const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
+                    if (!proveedor) continue;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${proveedor.nombre}</td>
+                        <td>${visita.tipoVisita}</td>
+                        <td class="asistencia-container">
+                            <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                            <span>No</span>
+                            <select class="asistencia-preventa-select" id="preventa-${visita.id}">
+                                <option value="">Sin preventa</option>
+                                <option value="Si">Sí hizo preventa</option>
+                                <option value="No">No hizo preventa</option>
+                            </select>
+                        </td>`;
+                    tbody.appendChild(tr);
+                }
+                const empty = document.getElementById('asistencia-empty');
+                if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
+            } catch (e) { console.error(e); }
         }
 
         async function marcarAsistencia(visitaId, asistio) {
@@ -988,14 +1055,25 @@
                         const empty = document.getElementById('asistencia-empty');
                         if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
 
+        // Toggle UI de patrón
+        const radios = document.querySelectorAll('input[name="patronVisita"]');
+        const panelSem = document.getElementById('panel-semanal');
+        const panelCadaN = document.getElementById('panel-cada-n');
+        radios.forEach(r => r.addEventListener('change', () => {
+            const v = (document.querySelector('input[name="patronVisita"]:checked')||{}).value;
+            panelSem.style.display = v === 'weekly' ? 'flex' : 'none';
+            panelCadaN.style.display = v === 'everyNDays' ? 'block' : 'none';
+        }));
+
         document.getElementById('proveedor-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 if (!validarFormulario()) return;
 
                 const datosProveedor = {
                     nombre: document.getElementById('nombre').value.trim(),
-            diasSemana: Array.from(document.querySelectorAll('input[name="diasSemana"]:checked')).map(el => Number(el.value)),
-            frecuenciaSemanas: Number(document.getElementById('frecuencia-semanas').value),
+                patron: (document.querySelector('input[name="patronVisita"]:checked')||{}).value,
+                diasSemana: Array.from(document.querySelectorAll('input[name="diasSemana"]:checked')).map(el => Number(el.value)),
+                cadaNDias: Number(document.getElementById('cada-n-dias')?.value || 0),
                     fechaInicio: document.getElementById('fecha-inicio').value || null,
                     tipoVisita: document.getElementById('tipo-visita').value
                 };
@@ -1038,6 +1116,10 @@
             });
             document.getElementById('btnExportarReporteCSV').addEventListener('click', exportarTablaReporteCSV);
 
+            // Set default fecha asistencia = hoy local
+            const inpFecha = document.getElementById('asistenciaFecha');
+            if (inpFecha) inpFecha.value = localISO(new Date());
+
             // Mostrar Asistencia de inmediato
             mostrarSeccion('asistenciaDiaria');
 
@@ -1046,6 +1128,30 @@
             await cargarTodosLosDatos();
             appInicializada = true;
             await cargarProveedoresHoy();
+            // Cambiar fecha de asistencia
+            if (inpFecha) {
+                inpFecha.addEventListener('change', async () => {
+                    await cargarProveedoresDeFecha(inpFecha.value);
+                });
+            }
+
+            // Auto refresh toggle
+            let autoTimer = null;
+            const chk = document.getElementById('autoRefreshChk');
+            const minsSel = document.getElementById('autoRefreshMins');
+            function startAuto() {
+                stopAuto();
+                const m = Number(minsSel.value || 2);
+                autoTimer = setInterval(async () => {
+                    const f = document.getElementById('asistenciaFecha')?.value || localISO(new Date());
+                    await cargarProveedoresDeFecha(f);
+                }, m * 60000);
+            }
+            function stopAuto() { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } }
+            if (chk && minsSel) {
+                chk.addEventListener('change', () => chk.checked ? startAuto() : stopAuto());
+                minsSel.addEventListener('change', () => { if (chk.checked) startAuto(); });
+            }
 
             // Handler para agregar visita manual hoy
             const btnAddHoy = document.getElementById('btnAgregarVisitaHoy');
