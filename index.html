@@ -372,6 +372,18 @@
 
         <div id="asistenciaDiaria" class="seccion">
             <h2>Proveedores Esperados para Hoy - <span id="fecha-hoy"></span></h2>
+            <div id="asistencia-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+                <strong>Agregar visita manual para hoy:</strong>
+                <select id="selectProveedorHoy" style="min-width:220px;"></select>
+                <select id="selectTipoHoy">
+                    <option>Visita Normal</option>
+                    <option>Preventa</option>
+                    <option>Entrega de Pedido</option>
+                    <option>Otro</option>
+                </select>
+                <button id="btnAgregarVisitaHoy" style="background:#17a2b8;">Agregar</button>
+            </div>
+            <div id="asistencia-empty" style="display:none;color:#6c757d;margin-bottom:8px;">No hay visitas programadas para hoy.</div>
             <table id="tabla-proveedores-hoy">
                 <thead><tr><th>Nombre</th><th>Tipo</th><th>¿Asistió?</th></tr></thead>
                 <tbody></tbody>
@@ -433,6 +445,13 @@
         let visitasData = [];
         let asistenciasData = [];
         let appInicializada = false;
+
+        // Fecha local YYYY-MM-DD (evita desfase por UTC)
+        function localISO(date = new Date()) {
+            const tz = date.getTimezoneOffset();
+            const local = new Date(date.getTime() - tz * 60000);
+            return local.toISOString().split('T')[0];
+        }
 
         // === FUNCIONES DE UI ===
         function mostrarSpinner(mensaje) {
@@ -696,7 +715,7 @@
         async function crearVisitasParaProveedor(proveedorId, datosProveedor) {
             const diasSemana = Array.isArray(datosProveedor.diasSemana) ? datosProveedor.diasSemana : [];
             const frecuenciaSemanas = Number(datosProveedor.frecuenciaSemanas || 1);
-            const fechaInicio = datosProveedor.fechaInicio || new Date().toISOString().split('T')[0];
+            const fechaInicio = datosProveedor.fechaInicio || localISO(new Date());
             const fechas = generarFechasVisitas(diasSemana, fechaInicio, 30, frecuenciaSemanas);
             
             for (const fecha of fechas) {
@@ -712,7 +731,7 @@
             }
         }
 
-        function generarFechasVisitas(diasSemanaNumeros, fechaInicio, diasAdelante, frecuenciaSemanas) {
+    function generarFechasVisitas(diasSemanaNumeros, fechaInicio, diasAdelante, frecuenciaSemanas) {
             const fechas = [];
             const inicio = new Date(fechaInicio);
             const pasoDias = 7 * Math.max(1, Number(frecuenciaSemanas || 1));
@@ -737,7 +756,7 @@
                     const diff = (dow - f.getDay() + 7) % 7; // días hasta dow dentro de la semana
                     f.setDate(f.getDate() + diff);
                     if ((f - inicio) / (24*3600*1000) <= diasAdelante) {
-                        fechas.push(f.toISOString().split('T')[0]);
+                        fechas.push(localISO(f));
                     }
                 }
             }
@@ -748,7 +767,7 @@
 
         // === FUNCIONES PARA ASISTENCIA DIARIA ===
         async function cargarProveedoresHoy() {
-            const hoy = new Date().toISOString().split('T')[0];
+            const hoy = localISO(new Date());
             document.getElementById('fecha-hoy').textContent = new Date().toLocaleDateString('es-ES');
             
             try {
@@ -875,12 +894,24 @@
                 `;
                 tbody.appendChild(tr);
             });
+
+            // Rellenar selector de proveedores en Asistencia Diaria (si existe)
+            const selProvHoy = document.getElementById('selectProveedorHoy');
+            if (selProvHoy) {
+                if (proveedoresData.length) {
+                    selProvHoy.innerHTML = proveedoresData
+                        .map(p => `<option value="${p.id}">${p.nombre}</option>`)
+                        .join('');
+                } else {
+                    selProvHoy.innerHTML = '<option value="">— Sin proveedores —</option>';
+                }
+            }
         }
 
-        function actualizarMetricasPanel() {
+    function actualizarMetricasPanel() {
             try {
                 const activos = proveedoresData.length;
-                const fechaHoy = new Date().toISOString().split('T')[0];
+        const fechaHoy = localISO(new Date());
                 const visitasHoy = visitasData.filter(v => v.fecha === fechaHoy).length;
                 const asistenciasRecientes = asistenciasData.length;
 
@@ -941,6 +972,9 @@
             document.getElementById('btnVerGestionProveedores').addEventListener('click', () => mostrarSeccion('gestionProveedores'));
             document.getElementById('btnReportes').addEventListener('click', () => mostrarSeccion('reportes'));
 
+                        const empty = document.getElementById('asistencia-empty');
+                        if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
+
         document.getElementById('proveedor-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 if (!validarFormulario()) return;
@@ -997,6 +1031,29 @@
             await cargarTodosLosDatos();
             appInicializada = true;
             await cargarProveedoresHoy();
+
+            // Handler para agregar visita manual hoy
+            const btnAddHoy = document.getElementById('btnAgregarVisitaHoy');
+            if (btnAddHoy) {
+                btnAddHoy.addEventListener('click', async () => {
+                    const provSel = document.getElementById('selectProveedorHoy');
+                    const tipoSel = document.getElementById('selectTipoHoy');
+                    const proveedor_id = Number(provSel.value);
+                    const tipoVisita = tipoSel.value || 'Visita Normal';
+                    if (!proveedor_id) { alert('Selecciona un proveedor'); return; }
+                    try {
+                        await fetch(`${API_BASE}/visitas`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ proveedor_id, fecha: localISO(new Date()), tipoVisita })
+                        });
+                        // Refrescar visitas y tabla de hoy
+                        const resVis = await fetch(`${API_BASE}/visitas`);
+                        if (resVis.ok) visitasData = await resVis.json();
+                        await cargarProveedoresHoy();
+                    } catch (e) { alert('No se pudo crear la visita: ' + e.message); }
+                });
+            }
             console.log('✅ Aplicación lista');
         });
 
