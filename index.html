@@ -930,7 +930,7 @@
         }
 
         // === INICIALIZACIÓN ===
-        document.addEventListener('DOMContentLoaded', async () => {
+    document.addEventListener('DOMContentLoaded', async () => {
             console.log('🚀 Iniciando aplicación...');
             
             document.getElementById('btnRegistrar').addEventListener('click', () => mostrarSeccion('registroProveedores'));
@@ -989,10 +989,14 @@
             });
             document.getElementById('btnExportarReporteCSV').addEventListener('click', exportarTablaReporteCSV);
 
+            // Mostrar Asistencia de inmediato
+            mostrarSeccion('asistenciaDiaria');
+
+            // Luego conectar y cargar datos
             await verificarConexion();
             await cargarTodosLosDatos();
-            mostrarSeccion('registroProveedores');
             appInicializada = true;
+            await cargarProveedoresHoy();
             console.log('✅ Aplicación lista');
         });
 
