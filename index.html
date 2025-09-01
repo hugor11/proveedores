@@ -544,11 +544,24 @@
         }
 
         // === VERIFICAR CONEXIÓN ===
+        // fetch con timeout compatible (sin AbortSignal.timeout)
+        async function fetchWithTimeout(resource, options = {}) {
+            const { timeout = 7000, ...opts } = options;
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const res = await fetch(resource, { ...opts, signal: controller.signal });
+                return res;
+            } finally {
+                clearTimeout(id);
+            }
+        }
+
         async function probarEndpoint(url) {
             try {
                 console.log(`🔍 Probando: ${url}/health`);
-                const res = await fetch(`${url}/health`, {
-                    signal: AbortSignal.timeout(5000),
+                const res = await fetchWithTimeout(`${url}/health`, {
+                    timeout: 7000,
                     headers: { 'Content-Type': 'application/json' }
                 });
                 
@@ -990,8 +1003,10 @@
                 await agregarProveedor(datosProveedor);
             });
 
-            document.getElementById('btnRefrescarDatos').addEventListener('click', () => {
-                cargarTodosLosDatos();
+            document.getElementById('btnRefrescarDatos').addEventListener('click', async () => {
+                await verificarConexion();
+                await cargarTodosLosDatos();
+                await cargarProveedoresHoy();
             });
 
             document.getElementById('btnExportarDatos').addEventListener('click', exportarDatos);

@@ -11,3 +11,9 @@
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/neon"]
+
+# Evita cachear el HTML para que siempre cargue el JS más reciente
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
