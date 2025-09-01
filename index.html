@@ -374,33 +374,38 @@
 
         <div id="asistenciaDiaria" class="seccion">
             <h2>Proveedores Esperados - <span id="fecha-hoy"></span></h2>
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-                <label>Fecha: <input type="date" id="asistenciaFecha"></label>
-                <label><input type="checkbox" id="autoRefreshChk"> Auto‑refrescar</label>
-                <select id="autoRefreshMins">
-                    <option value="1">cada 1 min</option>
-                    <option value="2" selected>cada 2 min</option>
-                    <option value="5">cada 5 min</option>
-                </select>
+            <div style="margin-bottom:10px;display:flex;justify-content:flex-end;">
+                <button id="toggleAsistenciaTools" style="background:#6c757d;">⚙️ Herramientas</button>
             </div>
-            <div id="asistencia-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-                <strong>Agregar visita manual para fecha seleccionada:</strong>
-                <select id="selectProveedorHoy" style="min-width:220px;"></select>
-                <select id="selectTipoHoy">
-                    <option>Visita Normal</option>
-                    <option>Preventa</option>
-                    <option>Entrega de Pedido</option>
-                    <option>Otro</option>
-                </select>
-                <button id="btnAgregarVisitaHoy" style="background:#17a2b8;">Agregar</button>
-                <span style="margin-left:10px;"><strong>Crear para TODOS:</strong></span>
-                <select id="selectTipoTodos">
-                    <option>Visita Normal</option>
-                    <option>Preventa</option>
-                    <option>Entrega de Pedido</option>
-                    <option>Otro</option>
-                </select>
-                <button id="btnCrearTodosFecha" style="background:#28a745;">Crear visitas (todos)</button>
+            <div id="asistencia-tools" style="display:none;">
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+                    <label>Fecha: <input type="date" id="asistenciaFecha"></label>
+                    <label><input type="checkbox" id="autoRefreshChk"> Auto‑refrescar</label>
+                    <select id="autoRefreshMins">
+                        <option value="1">cada 1 min</option>
+                        <option value="2" selected>cada 2 min</option>
+                        <option value="5">cada 5 min</option>
+                    </select>
+                </div>
+                <div id="asistencia-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+                    <strong>Agregar visita manual para fecha seleccionada:</strong>
+                    <select id="selectProveedorHoy" style="min-width:220px;"></select>
+                    <select id="selectTipoHoy">
+                        <option>Visita Normal</option>
+                        <option>Preventa</option>
+                        <option>Entrega de Pedido</option>
+                        <option>Otro</option>
+                    </select>
+                    <button id="btnAgregarVisitaHoy" style="background:#17a2b8;">Agregar</button>
+                    <span style="margin-left:10px;"><strong>Crear para TODOS:</strong></span>
+                    <select id="selectTipoTodos">
+                        <option>Visita Normal</option>
+                        <option>Preventa</option>
+                        <option>Entrega de Pedido</option>
+                        <option>Otro</option>
+                    </select>
+                    <button id="btnCrearTodosFecha" style="background:#28a745;">Crear visitas (todos)</button>
+                </div>
             </div>
             <div id="asistencia-empty" style="display:none;color:#6c757d;margin-bottom:8px;">No hay visitas programadas para esta fecha. Usa “Crear visitas (todos)” para generarlas o agrega una manualmente.</div>
             <table id="tabla-proveedores-hoy">
@@ -849,7 +854,6 @@
                         <td>${visita.tipoVisita || 'Visita'}</td>
                         <td class="asistencia-container">
                             <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
-                            <span>No</span>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -859,10 +863,8 @@
                         .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
                     if (prev) {
                         const chk = document.getElementById(`asistencia-${visita.id}`);
-                        const span = chk.nextElementSibling;
                         const checked = Number(prev.asistio) === 1;
                         chk.checked = checked;
-                        span.textContent = checked ? 'Sí' : 'No';
                     }
                 }
                 
@@ -887,10 +889,9 @@
                                         tr.innerHTML = `
                                                 <td>${proveedor.nombre}</td>
                                                 <td>${visita.tipoVisita || 'Visita Normal'}</td>
-                                                <td class="asistencia-container">
-                                                        <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
-                                                        <span>No</span>
-                                                </td>`;
+                                    <td class="asistencia-container">
+                                        <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                                    </td>`;
                     tbody.appendChild(tr);
 
                     // Prefill asistencia si existe un registro previo
@@ -899,10 +900,8 @@
                         .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
                     if (prev) {
                         const chk = document.getElementById(`asistencia-${visita.id}`);
-                        const span = chk.nextElementSibling;
                         const checked = Number(prev.asistio) === 1;
                         chk.checked = checked;
-                        span.textContent = checked ? 'Sí' : 'No';
                     }
                 }
                 const empty = document.getElementById('asistencia-empty');
@@ -912,9 +911,7 @@
 
         async function marcarAsistencia(visitaId, asistio) {
             const checkbox = document.getElementById(`asistencia-${visitaId}`);
-            const span = checkbox.nextElementSibling;
             
-            span.textContent = asistio ? 'Sí' : 'No';
             
             try {
                 const datosAsistencia = {
@@ -1142,6 +1139,16 @@
             if (inpFecha) {
                 inpFecha.addEventListener('change', async () => {
                     await cargarProveedoresDeFecha(inpFecha.value);
+                });
+            }
+
+            // Toggle herramientas de asistencia
+            const toggleBtn = document.getElementById('toggleAsistenciaTools');
+            const tools = document.getElementById('asistencia-tools');
+            if (toggleBtn && tools) {
+                toggleBtn.addEventListener('click', () => {
+                    const visible = tools.style.display !== 'none';
+                    tools.style.display = visible ? 'none' : 'block';
                 });
             }
 
