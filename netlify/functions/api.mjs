@@ -32,8 +32,19 @@ async function ensureSchema(sql) {
   await sql`create table if not exists proveedores (
     id serial primary key,
     nombre text not null,
+    patron text,
+    dias_semana text,
+    cada_n integer,
+    fecha_inicio date,
+    tipo_visita text,
     creado_en timestamptz default now()
   )`;
+  // Backfill columns in case table existed sin nuevas columnas
+  await sql`alter table proveedores add column if not exists patron text`;
+  await sql`alter table proveedores add column if not exists dias_semana text`;
+  await sql`alter table proveedores add column if not exists cada_n integer`;
+  await sql`alter table proveedores add column if not exists fecha_inicio date`;
+  await sql`alter table proveedores add column if not exists tipo_visita text`;
   await sql`create table if not exists visitas (
     id serial primary key,
     proveedor_id integer not null references proveedores(id) on delete cascade,
@@ -98,9 +109,41 @@ export const handler = async (event) => {
       }
     }
 
+    // Helpers para programación
+    function parseDiasSemana(text) {
+      try {
+        const arr = JSON.parse(text || '[]');
+        return Array.isArray(arr) ? arr.map(n => Number(n)) : [];
+      } catch { return []; }
+    }
+    function daysBetween(aISO, bISO) {
+      const a = new Date(`${aISO}T00:00:00`);
+      const b = new Date(`${bISO}T00:00:00`);
+      return Math.floor((b - a) / (24*3600*1000));
+    }
+    function shouldGenerateForDate(p, fechaISO) {
+      const patron = (p.patron || '').toLowerCase();
+      // Sin patrón no se genera: solo aparecen los programados
+      if (!patron) return false;
+      if (patron === 'daily') return true;
+      if (patron === 'weekly') {
+        const dias = parseDiasSemana(p.dias_semana);
+        const dow = new Date(`${fechaISO}T00:00:00`).getDay(); // 0..6
+        return dias.includes(dow);
+      }
+      if (patron === 'everyndays') {
+        const n = Number(p.cada_n || 0);
+        const start = p.fecha_inicio ? String(p.fecha_inicio) : null;
+        if (!n || n < 2 || !start) return false;
+        const diff = daysBetween(start, fechaISO);
+        return diff >= 0 && diff % n === 0;
+      }
+      return false;
+    }
+
     if (resource === 'proveedores') {
       if (httpMethod === 'GET') {
-        const rows = await sql`select id, nombre from proveedores order by id desc`;
+        const rows = await sql`select id, nombre, patron, dias_semana, cada_n, fecha_inicio, tipo_visita from proveedores order by id desc`;
         return json(200, rows);
       }
       if (httpMethod === 'POST') {
@@ -108,15 +151,61 @@ export const handler = async (event) => {
         if (!body.nombre || String(body.nombre).trim().length < 2) {
           return json(400, { error: 'Nombre inválido' });
         }
-        const rows = await sql`insert into proveedores(nombre) values(${String(body.nombre).trim()}) returning id, nombre`;
+        const patron = (body.patron || '').toLowerCase();
+        if (!patron || !['daily','weekly','everyndays'].includes(patron)) {
+          return json(400, { error: 'patron requerido: daily|weekly|everyNDays' });
+        }
+        if (patron === 'weekly') {
+          const dias = Array.isArray(body.diasSemana) ? body.diasSemana : [];
+          if (!dias.length) return json(400, { error: 'diasSemana requerido para weekly' });
+        }
+        if (patron === 'everyndays') {
+          const n = Number(body.cadaNDias || 0);
+          if (!n || n < 2) return json(400, { error: 'cadaNDias >= 2 requerido' });
+          if (!body.fechaInicio) return json(400, { error: 'fechaInicio requerido para everyNDays' });
+        }
+        const dias_semana = body.diasSemana ? JSON.stringify(body.diasSemana) : (body.dias_semana || null);
+        const cada_n = body.cadaNDias || body.cada_n || null;
+        const fecha_inicio = body.fechaInicio || body.fecha_inicio || null;
+        const tipo_visita = body.tipoVisita || body.tipo_visita || null;
+        const rows = await sql`insert into proveedores(nombre, patron, dias_semana, cada_n, fecha_inicio, tipo_visita)
+          values(${String(body.nombre).trim()}, ${patron}, ${dias_semana}, ${cada_n}, ${fecha_inicio}, ${tipo_visita})
+          returning id, nombre, patron, dias_semana, cada_n, fecha_inicio, tipo_visita`;
         return json(201, rows[0]);
       }
       if ((httpMethod === 'PATCH' || httpMethod === 'PUT') && id) {
         const body = JSON.parse(event.body || '{}');
-        if (!body.nombre || String(body.nombre).trim().length < 2) {
-          return json(400, { error: 'Nombre inválido' });
+        const currentRows = await sql`select id, nombre, patron, dias_semana, cada_n, fecha_inicio, tipo_visita from proveedores where id=${id}`;
+        if (!currentRows.length) return json(404, { error: 'Proveedor no encontrado' });
+        const current = currentRows[0];
+        const updates = {
+          nombre: body.nombre ?? current.nombre,
+          patron: body.patron ?? current.patron,
+          dias_semana: (body.diasSemana ? JSON.stringify(body.diasSemana) : (body.dias_semana ?? current.dias_semana)),
+          cada_n: (body.cadaNDias ?? body.cada_n ?? current.cada_n),
+          fecha_inicio: (body.fechaInicio ?? body.fecha_inicio ?? current.fecha_inicio),
+          tipo_visita: (body.tipoVisita ?? body.tipo_visita ?? current.tipo_visita),
+        };
+        if (!updates.nombre || String(updates.nombre).trim().length < 2) return json(400, { error: 'Nombre inválido' });
+        const pat = (updates.patron || '').toLowerCase();
+        if (!pat || !['daily','weekly','everyndays'].includes(pat)) return json(400, { error: 'patron requerido: daily|weekly|everyNDays' });
+        if (pat === 'weekly') {
+          const dias = (()=>{ try{return JSON.parse(updates.dias_semana||'[]')}catch{return []} })();
+          if (!Array.isArray(dias) || !dias.length) return json(400, { error: 'diasSemana requerido para weekly' });
         }
-        const rows = await sql`update proveedores set nombre = ${String(body.nombre).trim()} where id = ${id} returning id, nombre`;
+        if (pat === 'everyndays') {
+          const n = Number(updates.cada_n || 0);
+          if (!n || n < 2) return json(400, { error: 'cadaNDias >= 2 requerido' });
+          if (!updates.fecha_inicio) return json(400, { error: 'fechaInicio requerido para everyNDays' });
+        }
+        const rows = await sql`update proveedores set 
+            nombre = ${String(updates.nombre).trim()},
+            patron = ${updates.patron || null},
+            dias_semana = ${updates.dias_semana || null},
+            cada_n = ${updates.cada_n || null},
+            fecha_inicio = ${updates.fecha_inicio || null},
+            tipo_visita = ${updates.tipo_visita || null}
+          where id = ${id} returning id, nombre, patron, dias_semana, cada_n, fecha_inicio, tipo_visita`;
         if (!rows.length) return json(404, { error: 'Proveedor no encontrado' });
         return json(200, rows[0]);
       }
@@ -127,16 +216,35 @@ export const handler = async (event) => {
       return json(405, { error: 'Método no permitido' });
     }
 
-    if (resource === 'visitas') {
+  if (resource === 'visitas') {
       if (httpMethod === 'GET') {
         const urlObj = new URL(event.rawUrl || 'http://x');
         const fecha = urlObj.searchParams.get('fecha');
+        const autogen = urlObj.searchParams.get('autogen');
         if (fecha) {
+          if (autogen) {
+            // Generar visitas faltantes para la fecha según patrones de proveedores
+            const proveedores = await sql`select id, patron, dias_semana, cada_n, fecha_inicio, tipo_visita from proveedores`;
+            for (const p of proveedores) {
+              if (!shouldGenerateForDate(p, fecha)) continue;
+              const existe = await sql`select id from visitas where proveedor_id=${p.id} and fecha=${fecha} limit 1`;
+              if (existe.length) continue;
+              await sql`insert into visitas(proveedor_id, fecha, tipoVisita) values(${p.id}, ${fecha}, ${p.tipo_visita || 'Visita Normal'})`;
+            }
+          }
           const rows = await sql`select * from visitas where fecha = ${fecha} order by id desc`;
           return json(200, rows);
         }
         const rows = await sql`select * from visitas order by id desc`;
         return json(200, rows);
+      }
+      if ((httpMethod === 'PATCH' || httpMethod === 'PUT') && id) {
+        const body = JSON.parse(event.body || '{}');
+        const tipoVisita = body.tipoVisita;
+        if (!tipoVisita || String(tipoVisita).trim().length === 0) return json(400, { error: 'tipoVisita requerido' });
+        const rows = await sql`update visitas set tipoVisita=${tipoVisita} where id=${id} returning *`;
+        if (!rows.length) return json(404, { error: 'Visita no encontrada' });
+        return json(200, rows[0]);
       }
       if (httpMethod === 'POST') {
         const body = JSON.parse(event.body || '{}');

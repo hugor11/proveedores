@@ -402,9 +402,9 @@
                 </select>
                 <button id="btnCrearTodosFecha" style="background:#28a745;">Crear visitas (todos)</button>
             </div>
-            <div id="asistencia-empty" style="display:none;color:#6c757d;margin-bottom:8px;">No hay visitas programadas para hoy.</div>
+            <div id="asistencia-empty" style="display:none;color:#6c757d;margin-bottom:8px;">No hay visitas programadas para esta fecha. Usa “Crear visitas (todos)” para generarlas o agrega una manualmente.</div>
             <table id="tabla-proveedores-hoy">
-                <thead><tr><th>Nombre</th><th>Tipo</th><th>¿Asistió?</th></tr></thead>
+                <thead><tr><th>Nombre</th><th>Tipo</th><th>Asistió</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -521,10 +521,11 @@
             const nombre = document.getElementById('nombre');
             const patron = (document.querySelector('input[name="patronVisita"]:checked')||{}).value;
             const diasChecks = Array.from(document.querySelectorAll('input[name="diasSemana"]:checked'));
-            const tipoVisita = document.getElementById('tipo-visita');
-            
+            const nDias = Number(document.getElementById('cada-n-dias')?.value || 0);
+            const fechaInicio = document.getElementById('fecha-inicio').value;
+
             let valido = true;
-            
+
             if (!nombre.value.trim() || nombre.value.trim().length < 2) {
                 mostrarError('error-nombre', 'El nombre debe tener al menos 2 caracteres');
                 nombre.style.borderColor = 'red';
@@ -533,27 +534,24 @@
                 ocultarError('error-nombre');
                 nombre.style.borderColor = '';
             }
-            
-            if (patron === 'weekly' && diasChecks.length === 0) {
-                mostrarError('error-dias-visita', 'Selecciona al menos un día');
+
+            if (!patron) {
+                mostrarError('error-dias-visita', 'Elige la frecuencia: Diario, Semanal o Cada N días');
+                valido = false;
+            } else if (patron === 'weekly' && diasChecks.length === 0) {
+                mostrarError('error-dias-visita', 'Selecciona al menos un día de la semana');
                 valido = false;
             } else if (patron === 'everyNDays') {
-                const n = Number(document.getElementById('cada-n-dias').value);
-                if (!n || n < 2) { mostrarError('error-dias-visita', 'Elige N ≥ 2'); valido = false; }
+                if (!nDias || nDias < 2) { mostrarError('error-dias-visita', 'N debe ser ≥ 2'); valido = false; }
+                else if (!fechaInicio) { mostrarError('error-dias-visita', 'Selecciona la fecha de inicio'); valido = false; }
                 else ocultarError('error-dias-visita');
             } else {
                 ocultarError('error-dias-visita');
             }
-            
-            if (!tipoVisita.value) {
-                mostrarError('error-tipo-visita', 'Selecciona el tipo de visita');
-                tipoVisita.style.borderColor = 'red';
-                valido = false;
-            } else {
-                ocultarError('error-tipo-visita');
-                tipoVisita.style.borderColor = '';
-            }
-            
+
+            // Tipo de visita base es opcional (se usará "Visita Normal" si no se envía)
+            ocultarError('error-tipo-visita');
+
             return valido;
         }
 
@@ -681,7 +679,14 @@
                 const res = await fetch(`${API_BASE}/proveedores`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: datosProveedor.nombre.trim() })
+                    body: JSON.stringify({
+                        nombre: datosProveedor.nombre.trim(),
+                        patron: (datosProveedor.patron || '').toLowerCase(),
+                        diasSemana: datosProveedor.diasSemana,
+                        cadaNDias: datosProveedor.cadaNDias,
+                        fechaInicio: datosProveedor.fechaInicio,
+                        tipoVisita: datosProveedor.tipoVisita
+                    })
                 });
                 
                 if (!res.ok) {
@@ -841,15 +846,10 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${proveedor.nombre}</td>
-                        <td>${visita.tipoVisita}</td>
+                        <td>${visita.tipoVisita || 'Visita'}</td>
                         <td class="asistencia-container">
                             <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
                             <span>No</span>
-                            <select class="asistencia-preventa-select" id="preventa-${visita.id}">
-                                <option value="">Sin preventa</option>
-                                <option value="Si">Sí hizo preventa</option>
-                                <option value="No">No hizo preventa</option>
-                            </select>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -860,11 +860,9 @@
                     if (prev) {
                         const chk = document.getElementById(`asistencia-${visita.id}`);
                         const span = chk.nextElementSibling;
-                        const sel = document.getElementById(`preventa-${visita.id}`);
                         const checked = Number(prev.asistio) === 1;
                         chk.checked = checked;
                         span.textContent = checked ? 'Sí' : 'No';
-                        if (prev.hizo_preventa) sel.value = prev.hizo_preventa;
                     }
                 }
                 
@@ -873,11 +871,11 @@
             }
         }
 
-        async function cargarProveedoresDeFecha(fechaISO) {
+    async function cargarProveedoresDeFecha(fechaISO) {
             const fecha = fechaISO || localISO(new Date());
             document.getElementById('fecha-hoy').textContent = new Date(fecha).toLocaleDateString('es-ES');
             try {
-                const res = await fetch(`${API_BASE}/visitas?fecha=${fecha}`);
+        const res = await fetch(`${API_BASE}/visitas?fecha=${fecha}&autogen=1`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const visitasDia = await res.json();
                 const tbody = document.querySelector('#tabla-proveedores-hoy tbody');
@@ -886,18 +884,13 @@
                     const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
                     if (!proveedor) continue;
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${proveedor.nombre}</td>
-                        <td>${visita.tipoVisita}</td>
-                        <td class="asistencia-container">
-                            <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
-                            <span>No</span>
-                            <select class="asistencia-preventa-select" id="preventa-${visita.id}">
-                                <option value="">Sin preventa</option>
-                                <option value="Si">Sí hizo preventa</option>
-                                <option value="No">No hizo preventa</option>
-                            </select>
-                        </td>`;
+                                        tr.innerHTML = `
+                                                <td>${proveedor.nombre}</td>
+                                                <td>${visita.tipoVisita || 'Visita Normal'}</td>
+                                                <td class="asistencia-container">
+                                                        <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                                                        <span>No</span>
+                                                </td>`;
                     tbody.appendChild(tr);
 
                     // Prefill asistencia si existe un registro previo
@@ -907,11 +900,9 @@
                     if (prev) {
                         const chk = document.getElementById(`asistencia-${visita.id}`);
                         const span = chk.nextElementSibling;
-                        const sel = document.getElementById(`preventa-${visita.id}`);
                         const checked = Number(prev.asistio) === 1;
                         chk.checked = checked;
                         span.textContent = checked ? 'Sí' : 'No';
-                        if (prev.hizo_preventa) sel.value = prev.hizo_preventa;
                     }
                 }
                 const empty = document.getElementById('asistencia-empty');
@@ -922,7 +913,6 @@
         async function marcarAsistencia(visitaId, asistio) {
             const checkbox = document.getElementById(`asistencia-${visitaId}`);
             const span = checkbox.nextElementSibling;
-            const preventaSelect = document.getElementById(`preventa-${visitaId}`);
             
             span.textContent = asistio ? 'Sí' : 'No';
             
@@ -930,7 +920,7 @@
                 const datosAsistencia = {
                     visita_id: visitaId,
                     asistio: asistio ? 1 : 0,
-                    hizo_preventa: preventaSelect.value || null,
+                    hizo_preventa: null,
                     estado_especifico: asistio ? 'A tiempo' : 'No asistió'
                 };
                 
@@ -942,11 +932,10 @@
                 
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-                // Lógica: si esta visita es de Preventa y marcó "Sí hizo preventa",
+                // Si esta visita es de Preventa y asistió,
                 // crear automáticamente visita para el día siguiente de tipo "Entrega de Pedido" si no existe.
                 const visita = visitasData.find(v => v.id === visitaId);
-                const hizoPreventaSi = (preventaSelect.value || '').toLowerCase() === 'si';
-                if (visita && String(visita.tipoVisita).toLowerCase().includes('preventa') && hizoPreventaSi) {
+                if (visita && String(visita.tipoVisita).toLowerCase().includes('preventa') && asistio) {
                     // Evitar sesgos UTC: usar medianoche local
                     const hoyLocal = new Date(`${visita.fecha}T00:00:00`);
                     const manana = new Date(hoyLocal);
@@ -1194,6 +1183,7 @@
                         const resVis = await fetch(`${API_BASE}/visitas`);
                         if (resVis.ok) visitasData = await resVis.json();
                         await cargarProveedoresDeFecha(fecha);
+                        actualizarMetricasPanel();
                     } catch (e) { alert('No se pudo crear la visita: ' + e.message); }
                 });
             }
@@ -1217,6 +1207,7 @@
                         const resVis = await fetch(`${API_BASE}/visitas`);
                         if (resVis.ok) visitasData = await resVis.json();
                         await cargarProveedoresDeFecha(fecha);
+                        actualizarMetricasPanel();
                     } catch (e) { alert('Error creando visitas: ' + e.message); }
                 });
             }
