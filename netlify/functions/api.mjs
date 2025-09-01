@@ -1,4 +1,5 @@
-import { neon } from '@netlify/neon';
+// Carga dinámica para soportar distintas versiones de @netlify/neon
+// v0.1.x expone `Neon` (clase con .sql), versiones anteriores exponen `neon` (tagged template)
 
 function json(statusCode, body) {
   return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
@@ -12,10 +13,18 @@ function parsePath(path) {
   return { resource, id, action };
 }
 
-function getSql() {
+async function getSql() {
+  const mod = await import('@netlify/neon');
   const url = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
-  if (url) return neon(url);
-  return neon();
+  if (mod.Neon) {
+    if (!url) throw new Error('DATABASE_URL no definido');
+    const client = new mod.Neon(url);
+    return client.sql;
+  }
+  if (mod.neon) {
+    return url ? mod.neon(url) : mod.neon();
+  }
+  throw new Error('Cliente @netlify/neon no disponible');
 }
 
 async function ensureSchema(sql) {
@@ -51,8 +60,19 @@ export const handler = async (event) => {
 
   let sql;
   try {
-    sql = getSql();
+    sql = await getSql();
     await ensureSchema(sql);
+
+    if (resource === 'dbhealth') {
+      try {
+        const prov = await sql`select count(*)::int as c from proveedores`;
+        const vis = await sql`select count(*)::int as c from visitas`;
+        const asi = await sql`select count(*)::int as c from asistencias`;
+        return json(200, { ok: true, proveedores: prov[0].c, visitas: vis[0].c, asistencias: asi[0].c });
+      } catch (e) {
+        return json(500, { ok: false, error: e.message || 'DB error' });
+      }
+    }
 
     if (resource === 'proveedores') {
       if (httpMethod === 'GET') {
