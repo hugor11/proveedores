@@ -836,19 +836,23 @@
     async function cargarProveedoresHoy() {
             const hoy = localISO(new Date());
             document.getElementById('fecha-hoy').textContent = new Date().toLocaleDateString('es-ES');
-            
             try {
-                const res = await fetch(`${API_BASE}/visitas?fecha=${hoy}`);
+                // Traer asistencias frescas antes de pintar
+                try {
+                    const resAs = await fetch(`${API_BASE}/asistencias`);
+                    if (resAs.ok) asistenciasData = await resAs.json();
+                } catch {}
+
+                // Usar autogen=1 para asegurar visitas programadas
+                const res = await fetch(`${API_BASE}/visitas?fecha=${hoy}&autogen=1`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                
                 const visitasHoy = await res.json();
+
                 const tbody = document.querySelector('#tabla-proveedores-hoy tbody');
                 tbody.innerHTML = '';
-                
                 for (const visita of visitasHoy) {
                     const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
                     if (!proveedor) continue;
-                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${proveedor.nombre}</td>
@@ -860,6 +864,7 @@
                     `;
                     tbody.appendChild(tr);
 
+                    // Prefill asistencia si existe
                     const prev = asistenciasData
                         .filter(a => a.visita_id === visita.id)
                         .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
@@ -869,7 +874,8 @@
                         chk.checked = checked;
                     }
                 }
-                
+                const empty = document.getElementById('asistencia-empty');
+                if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
             } catch (err) {
                 console.error('Error al cargar proveedores de hoy:', err);
             }
@@ -879,9 +885,16 @@
             const fecha = fechaISO || localISO(new Date());
             document.getElementById('fecha-hoy').textContent = new Date(fecha).toLocaleDateString('es-ES');
             try {
-        const res = await fetch(`${API_BASE}/visitas?fecha=${fecha}&autogen=1`);
+                // Traer asistencias frescas antes de pintar
+                try {
+                    const resAs = await fetch(`${API_BASE}/asistencias`);
+                    if (resAs.ok) asistenciasData = await resAs.json();
+                } catch {}
+
+                const res = await fetch(`${API_BASE}/visitas?fecha=${fecha}&autogen=1`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const visitasDia = await res.json();
+
                 const tbody = document.querySelector('#tabla-proveedores-hoy tbody');
                 tbody.innerHTML = '';
                 for (const visita of visitasDia) {
@@ -914,8 +927,6 @@
 
         async function marcarAsistencia(visitaId, asistio) {
             const checkbox = document.getElementById(`asistencia-${visitaId}`);
-            
-            
             try {
                 const datosAsistencia = {
                     visita_id: visitaId,
@@ -960,11 +971,16 @@
                         } catch {}
                     }
                 }
+
+                // Refrescar asistencias después de guardar para que la UI persista
+                try {
+                    const resAs = await fetch(`${API_BASE}/asistencias`);
+                    if (resAs.ok) asistenciasData = await resAs.json();
+                } catch {}
                 
             } catch (err) {
                 console.error('Error al guardar asistencia:', err);
                 checkbox.checked = !asistio;
-                span.textContent = !asistio ? 'Sí' : 'No';
             }
         }
 
