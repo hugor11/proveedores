@@ -434,11 +434,10 @@
             <h2>Reportes de Asistencia</h2>
             <div id="botonesReportesPredefinidos">
                 <button id="btnReporteUltimos3Dias">Últimos 3 Días</button>
+                <button id="btnReporteUltimos5Dias">Últimos 5 Días</button>
                 <button id="btnReporteUltimos7Dias">Últimos 7 Días</button>
                 <button id="btnReporteUltimos15Dias">Últimos 15 Días</button>
                 <button id="btnReporteUltimoMes">Último Mes</button>
-                <button id="btnReporteUltimos5Dias">Últimos 5 Días</button>
-                <button id="btnReporteUltimos6Dias">Últimos 6 Días</button>
             </div>
             <div id="reportePersonalizado" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
                 <h3>Reporte Personalizado</h3>
@@ -1120,7 +1119,6 @@
             document.getElementById('btnReporteUltimos15Dias').addEventListener('click', () => setFechasYGenerar(15));
             document.getElementById('btnReporteUltimoMes').addEventListener('click', () => setFechasYGenerar(30));
             const btn5 = document.getElementById('btnReporteUltimos5Dias'); if (btn5) btn5.addEventListener('click', () => setFechasYGenerar(5));
-            const btn6 = document.getElementById('btnReporteUltimos6Dias'); if (btn6) btn6.addEventListener('click', () => setFechasYGenerar(6));
             document.getElementById('btnGenerarReportePersonalizado').addEventListener('click', () => {
                 const fi = document.getElementById('fechaInicioReporte').value;
                 const ff = document.getElementById('fechaFinReporte').value;
