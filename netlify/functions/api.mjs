@@ -1,5 +1,6 @@
 // Carga dinámica para soportar distintas versiones de @netlify/neon
 // v0.1.x expone `Neon` (clase con .sql), versiones anteriores exponen `neon` (tagged template)
+const DB_URL = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
 
 function json(statusCode, body) {
   return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
@@ -53,6 +54,29 @@ async function ensureSchema(sql) {
 export const handler = async (event) => {
   const { httpMethod, path } = event;
   const { resource, id, action } = parsePath(path);
+
+  // Soporte de rutas por pathname como en la guía del usuario
+  try {
+    const url = new URL(event.rawUrl || 'http://x');
+    const pathname = url.pathname || '';
+    if (pathname.endsWith('/api/health') || pathname.endsWith('/health')) {
+      return json(200, { ok: true });
+    }
+    if (pathname.endsWith('/api/dbhealth') || pathname.endsWith('/dbhealth')) {
+      if (!DB_URL) return json(500, { ok: false, error: 'DATABASE_URL no definido' });
+      const sql = await getSql();
+      // Asegurar tablas y probar conectividad real
+      await ensureSchema(sql);
+      try {
+        const prov = await sql`select count(*)::int as count from proveedores`;
+        const vis = await sql`select count(*)::int as count from visitas`;
+        const asi = await sql`select count(*)::int as count from asistencias`;
+        return json(200, { ok: true, proveedores: prov[0].count, visitas: vis[0].count, asistencias: asi[0].count });
+      } catch (e) {
+        return json(500, { ok: false, error: e.message || 'DB error' });
+      }
+    }
+  } catch {}
 
   if (resource === 'health') {
     return json(200, { ok: true, message: 'Netlify Functions up' });
