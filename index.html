@@ -855,10 +855,11 @@
                     if (!proveedor) continue;
                     const tipo = String(visita.tipoVisita || '').toLowerCase();
                     const label = tipo.includes('preventa') ? 'Pedir' : tipo.includes('entrega') ? 'Entregó' : 'Asistió';
+                    const tipoDisplay = visita.tipoVisita ? visita.tipoVisita.charAt(0).toUpperCase() + visita.tipoVisita.slice(1).toLowerCase() : 'Visita';
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${proveedor.nombre}</td>
-                        <td>${visita.tipoVisita || 'Visita'}</td>
+                        <td>${tipoDisplay}</td>
                         <td class="asistencia-container">
                             <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
                             <label for="asistencia-${visita.id}">${label}</label>
@@ -904,10 +905,11 @@
                     if (!proveedor) continue;
                     const tipo = String(visita.tipoVisita || '').toLowerCase();
                     const label = tipo.includes('preventa') ? 'Pedir' : tipo.includes('entrega') ? 'Entregó' : 'Asistió';
+                    const tipoDisplay = visita.tipoVisita ? visita.tipoVisita.charAt(0).toUpperCase() + visita.tipoVisita.slice(1).toLowerCase() : 'Visita Normal';
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${proveedor.nombre}</td>
-                        <td>${visita.tipoVisita || 'Visita Normal'}</td>
+                        <td>${tipoDisplay}</td>
                         <td class="asistencia-container">
                             <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
                             <label for="asistencia-${visita.id}">${label}</label>
