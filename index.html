@@ -277,6 +277,30 @@
             background-color: #e9ecef;
             transition: background-color 0.2s ease;
         }
+
+        /* Modal sencillo para editar proveedor */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-card {
+            background: white;
+            width: min(720px, 95%);
+            max-height: 90vh;
+            overflow: auto;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+        .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+        .modal-header h3 { margin:0; color:#dc3545; }
+        .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
     </style>
 </head>
 <body>
@@ -428,6 +452,59 @@
                 <thead><tr><th>Nombre</th><th>Días Visita</th><th>Tipo</th><th>Acciones</th></tr></thead>
                 <tbody></tbody>
             </table>
+        </div>
+
+        <!-- Modal de Edición de Proveedor -->
+        <div id="editModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3 id="editModalTitle">Editar Proveedor</h3>
+                    <button id="editCloseBtn" title="Cerrar" style="background:#6c757d;">✖</button>
+                </div>
+                <div id="edit-error" class="error"></div>
+                <div class="form-section">
+                    <label for="edit-nombre">Nombre:</label>
+                    <input type="text" id="edit-nombre">
+                </div>
+                <div class="form-section">
+                    <label>Frecuencia de visitas:</label>
+                    <div id="edit-patron-visita" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                        <label><input type="radio" name="editPatronVisita" value="daily"> Diario</label>
+                        <label><input type="radio" name="editPatronVisita" value="weekly"> Semanal (elige día/s)</label>
+                        <div id="edit-panel-semanal" style="margin-left:15px;display:flex;flex-wrap:wrap;gap:10px;">
+                            <label><input type="checkbox" name="editDiasSemana" value="1"> Lunes</label>
+                            <label><input type="checkbox" name="editDiasSemana" value="2"> Martes</label>
+                            <label><input type="checkbox" name="editDiasSemana" value="3"> Miércoles</label>
+                            <label><input type="checkbox" name="editDiasSemana" value="4"> Jueves</label>
+                            <label><input type="checkbox" name="editDiasSemana" value="5"> Viernes</label>
+                            <label><input type="checkbox" name="editDiasSemana" value="6"> Sábado</label>
+                            <label><input type="checkbox" name="editDiasSemana" value="0"> Domingo</label>
+                        </div>
+                        <label><input type="radio" name="editPatronVisita" value="everyNDays"> Cada N días</label>
+                        <div id="edit-panel-cada-n" style="margin-left:15px;display:none;">
+                            <input type="number" id="edit-cada-n-dias" min="2" value="2" style="width:120px;"> días
+                        </div>
+                    </div>
+                    <div>
+                        <label for="edit-fecha-inicio">Fecha Inicio (Cada X):</label>
+                        <input type="date" id="edit-fecha-inicio">
+                    </div>
+                    <div>
+                        <label for="edit-tipo-visita">Tipo Visita:</label>
+                        <select id="edit-tipo-visita">
+                            <option value="">--</option>
+                            <option>Visita Normal</option>
+                            <option>Preventa</option>
+                            <option>Entrega de Pedido</option>
+                            <option>Otro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button id="editSaveBtn" style="background:#28a745;">Guardar</button>
+                    <button id="editCancelBtn" style="background:#6c757d;">Cancelar</button>
+                </div>
+            </div>
         </div>
 
         <div id="reportes" class="seccion">

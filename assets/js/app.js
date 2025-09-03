@@ -543,14 +543,18 @@ function actualizarTablaProveedores() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${p.nombre}</td>
-            <td>Ver calendario</td>
-            <td>Múltiples tipos</td>
+            <td>${(p.patron||'').toUpperCase()}</td>
+            <td>${canonicalTipo(p.tipo_visita||'')}</td>
             <td>
-                <button class="btn-editar-proveedor" onclick="editarProveedor(${p.id})">Editar</button>
+                <button class="btn-editar-proveedor" data-edit-id="${p.id}">Editar</button>
                 <button class="btn-eliminar-proveedor" onclick="eliminarProveedor(${p.id})">Eliminar</button>
             </td>
         `;
         tbody.appendChild(tr);
+    });
+    // Bind click handlers for edit buttons
+    tbody.querySelectorAll('button[data-edit-id]').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(Number(btn.getAttribute('data-edit-id'))));
     });
     // Rellenar selector de proveedores en Asistencia Diaria (si existe)
     const selProvHoy = document.getElementById('selectProveedorHoy');
@@ -884,4 +888,90 @@ function exportarTablaReporteCSV() {
 // Exponer funciones usadas por atributos inline en HTML
 window.marcarAsistencia = marcarAsistencia;
 window.eliminarProveedor = eliminarProveedor;
-window.editarProveedor = editarProveedor;
+// Modal de Edición de Proveedor
+let editingProvId = null;
+function openEditModal(id) {
+    const p = proveedoresData.find(x => x.id === id);
+    if (!p) return;
+    editingProvId = id;
+    const modal = document.getElementById('editModal');
+    const err = document.getElementById('edit-error');
+    if (err) err.textContent = '';
+    // Prefill
+    document.getElementById('edit-nombre').value = p.nombre || '';
+    const patron = (p.patron || '').toLowerCase();
+    const rads = document.querySelectorAll('input[name="editPatronVisita"]');
+    rads.forEach(r => r.checked = (r.value === patron));
+    // panels
+    const panelSem = document.getElementById('edit-panel-semanal');
+    const panelCadaN = document.getElementById('edit-panel-cada-n');
+    panelSem.style.display = patron === 'weekly' ? 'flex' : 'none';
+    panelCadaN.style.display = patron === 'everyndays' ? 'block' : 'none';
+    // dias semana
+    const dias = (()=>{ try { return JSON.parse(p.dias_semana||'[]'); } catch { return []; } })();
+    document.querySelectorAll('input[name="editDiasSemana"]').forEach(ch => { ch.checked = dias.includes(Number(ch.value)); });
+    // cada N + fecha inicio
+    document.getElementById('edit-cada-n-dias').value = Number(p.cada_n || 2);
+    document.getElementById('edit-fecha-inicio').value = p.fecha_inicio ? String(p.fecha_inicio).split('T')[0] : '';
+    // tipo visita
+    document.getElementById('edit-tipo-visita').value = p.tipo_visita || '';
+    // Show
+    modal.style.display = 'flex';
+}
+function closeEditModal() {
+    const modal = document.getElementById('editModal');
+    if (modal) modal.style.display = 'none';
+    editingProvId = null;
+}
+// Wire modal events
+const editCloseBtn = document.getElementById('editCloseBtn');
+if (editCloseBtn) editCloseBtn.addEventListener('click', closeEditModal);
+const editCancelBtn = document.getElementById('editCancelBtn');
+if (editCancelBtn) editCancelBtn.addEventListener('click', closeEditModal);
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('editModal');
+    if (modal && e.target === modal) closeEditModal();
+});
+// Toggle panels inside modal
+document.querySelectorAll('input[name="editPatronVisita"]').forEach(r => r.addEventListener('change', () => {
+    const v = (document.querySelector('input[name="editPatronVisita"]:checked')||{}).value;
+    document.getElementById('edit-panel-semanal').style.display = v === 'weekly' ? 'flex' : 'none';
+    document.getElementById('edit-panel-cada-n').style.display = v === 'everyNDays' ? 'block' : 'none';
+}));
+// Save edit
+const editSaveBtn = document.getElementById('editSaveBtn');
+if (editSaveBtn) editSaveBtn.addEventListener('click', async () => {
+    const err = document.getElementById('edit-error');
+    try {
+        if (!editingProvId) return;
+        const nombre = document.getElementById('edit-nombre').value.trim();
+        if (!nombre || nombre.length < 2) throw new Error('El nombre debe tener al menos 2 caracteres');
+        const patron = (document.querySelector('input[name="editPatronVisita"]:checked')||{}).value;
+        if (!patron) throw new Error('Elige la frecuencia: Diario, Semanal o Cada N días');
+        let diasSemana = [];
+        let cadaNDias = null;
+        let fechaInicio = null;
+        if (patron === 'weekly') {
+            diasSemana = Array.from(document.querySelectorAll('input[name="editDiasSemana"]:checked')).map(el => Number(el.value));
+            if (!diasSemana.length) throw new Error('Selecciona al menos un día de la semana');
+        } else if (patron === 'everyNDays') {
+            cadaNDias = Number(document.getElementById('edit-cada-n-dias').value || 0);
+            if (!cadaNDias || cadaNDias < 2) throw new Error('N debe ser ≥ 2');
+            fechaInicio = document.getElementById('edit-fecha-inicio').value;
+            if (!fechaInicio) throw new Error('Selecciona la fecha de inicio');
+        }
+        const tipoVisita = document.getElementById('edit-tipo-visita').value || null;
+        const body = { nombre, patron: patron.toLowerCase(), diasSemana, cadaNDias, fechaInicio, tipoVisita };
+        const res = await fetch(`${API_BASE}/proveedores/${editingProvId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+            const e = await res.json().catch(()=>({}));
+            throw new Error(e.error || `HTTP ${res.status}`);
+        }
+        await cargarTodosLosDatos();
+        closeEditModal();
+    } catch (e) {
+        if (err) err.textContent = e.message || String(e);
+    }
+});
