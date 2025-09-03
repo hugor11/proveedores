@@ -383,7 +383,7 @@ async function cargarProveedoresHoy() {
         // Usar autogen=1 para asegurar visitas programadas
         const res = await fetch(`${API_BASE}/visitas?fecha=${hoy}&autogen=1`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const visitasHoy = await res.json();
+    const visitasHoy = await res.json();
         const tbody = document.querySelector('#tabla-proveedores-hoy tbody');
         if (!tbody) return;
         tbody.innerHTML = '';
@@ -398,7 +398,11 @@ async function cargarProveedoresHoy() {
                 <td>${proveedor.nombre}</td>
                 <td>${tipoDisplay}</td>
                 <td class="asistencia-container">
-                    <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                    <input type="checkbox" id="asistencia-${visita.id}"
+                        data-proveedor-id="${visita.proveedor_id}"
+                        data-fecha="${visita.fecha}"
+                        data-tipo="${tipoCanon}"
+                        onchange="marcarAsistencia(${visita.id}, this.checked)">
                     <label for="asistencia-${visita.id}">${label}</label>
                 </td>
             `;
@@ -415,6 +419,9 @@ async function cargarProveedoresHoy() {
         }
         const empty = document.getElementById('asistencia-empty');
         if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
+    // Actualizar métrica de "Visitas hoy" con el conteo real del día cargado (autogen incluido)
+    const metr = document.getElementById('metrica-ultimos');
+    if (metr) metr.textContent = visitasHoy.length;
     } catch (err) {
         console.error('Error al cargar proveedores de hoy:', err);
     }
@@ -432,7 +439,7 @@ async function cargarProveedoresDeFecha(fechaISO) {
         } catch {}
         const res = await fetch(`${API_BASE}/visitas?fecha=${fecha}&autogen=1`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const visitasDia = await res.json();
+    const visitasDia = await res.json();
         const tbody = document.querySelector('#tabla-proveedores-hoy tbody');
         if (!tbody) return;
         tbody.innerHTML = '';
@@ -447,7 +454,11 @@ async function cargarProveedoresDeFecha(fechaISO) {
                 <td>${proveedor.nombre}</td>
                 <td>${tipoDisplay}</td>
                 <td class="asistencia-container">
-                    <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
+                    <input type="checkbox" id="asistencia-${visita.id}"
+                        data-proveedor-id="${visita.proveedor_id}"
+                        data-fecha="${visita.fecha}"
+                        data-tipo="${tipoCanon}"
+                        onchange="marcarAsistencia(${visita.id}, this.checked)">
                     <label for="asistencia-${visita.id}">${label}</label>
                 </td>`;
             tbody.appendChild(tr);
@@ -463,6 +474,11 @@ async function cargarProveedoresDeFecha(fechaISO) {
         }
         const empty = document.getElementById('asistencia-empty');
         if (empty) empty.style.display = tbody.children.length === 0 ? 'block' : 'none';
+        // Si la fecha seleccionada es hoy, actualizar la métrica de "Visitas hoy"
+        if (fecha === localISO(new Date())) {
+            const metr = document.getElementById('metrica-ultimos');
+            if (metr) metr.textContent = visitasDia.length;
+        }
     } catch (e) { console.error(e); }
 }
 
