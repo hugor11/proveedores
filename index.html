@@ -853,13 +853,15 @@
                 for (const visita of visitasHoy) {
                     const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
                     if (!proveedor) continue;
+                    const tipo = String(visita.tipoVisita || '').toLowerCase();
+                    const label = tipo.includes('preventa') ? 'Pedir' : tipo.includes('entrega') ? 'Entregó' : 'Asistió';
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${proveedor.nombre}</td>
                         <td>${visita.tipoVisita || 'Visita'}</td>
                         <td class="asistencia-container">
                             <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
-                            <label for="asistencia-${visita.id}">Asistió</label>
+                            <label for="asistencia-${visita.id}">${label}</label>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -900,13 +902,15 @@
                 for (const visita of visitasDia) {
                     const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
                     if (!proveedor) continue;
+                    const tipo = String(visita.tipoVisita || '').toLowerCase();
+                    const label = tipo.includes('preventa') ? 'Pedir' : tipo.includes('entrega') ? 'Entregó' : 'Asistió';
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${proveedor.nombre}</td>
                         <td>${visita.tipoVisita || 'Visita Normal'}</td>
                         <td class="asistencia-container">
                             <input type="checkbox" id="asistencia-${visita.id}" onchange="marcarAsistencia(${visita.id}, this.checked)">
-                            <label for="asistencia-${visita.id}">Asistió</label>
+                            <label for="asistencia-${visita.id}">${label}</label>
                         </td>`;
                     tbody.appendChild(tr);
 
@@ -925,14 +929,28 @@
             } catch (e) { console.error(e); }
         }
 
-        async function marcarAsistencia(visitaId, asistio) {
+        async function marcarAsistencia(visitaId, checked) {
             const checkbox = document.getElementById(`asistencia-${visitaId}`);
             try {
+                const visita = visitasData.find(v => v.id === visitaId);
+                const tipo = String(visita?.tipoVisita || '').toLowerCase();
+                let asistio = 0, hizo_preventa = null, estado_especifico = '';
+                if (tipo.includes('preventa')) {
+                    hizo_preventa = checked ? 1 : 0;
+                    asistio = checked ? 1 : 0; // Asumir que si pide, asistió
+                    estado_especifico = checked ? 'Pedir' : 'No pedir';
+                } else if (tipo.includes('entrega')) {
+                    asistio = checked ? 1 : 0;
+                    estado_especifico = checked ? 'Entregó' : 'No entregó';
+                } else {
+                    asistio = checked ? 1 : 0;
+                    estado_especifico = checked ? 'A tiempo' : 'No asistió';
+                }
                 const datosAsistencia = {
                     visita_id: visitaId,
-                    asistio: asistio ? 1 : 0,
-                    hizo_preventa: null,
-                    estado_especifico: asistio ? 'A tiempo' : 'No asistió'
+                    asistio: asistio,
+                    hizo_preventa: hizo_preventa,
+                    estado_especifico: estado_especifico
                 };
                 
                 const res = await fetch(`${API_BASE}/asistencias`, {
@@ -943,10 +961,9 @@
                 
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-                // Si esta visita es de Preventa y asistió,
+                // Si esta visita es de Preventa y pidió (hizo_preventa),
                 // crear automáticamente visita para el día siguiente de tipo "Entrega de Pedido" si no existe.
-                const visita = visitasData.find(v => v.id === visitaId);
-                if (visita && String(visita.tipoVisita).toLowerCase().includes('preventa') && asistio) {
+                if (visita && tipo.includes('preventa') && checked) {
                     // Evitar sesgos UTC: usar medianoche local
                     const hoyLocal = new Date(`${visita.fecha}T00:00:00`);
                     const manana = new Date(hoyLocal);
@@ -980,7 +997,7 @@
                 
             } catch (err) {
                 console.error('Error al guardar asistencia:', err);
-                checkbox.checked = !asistio;
+                checkbox.checked = !checked;
             }
         }
 
