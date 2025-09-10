@@ -394,27 +394,52 @@ async function cargarProveedoresHoy() {
             const label = labelForTipo(tipoCanon);
             const tipoDisplay = tipoCanon;
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${proveedor.nombre}</td>
-                <td>${tipoDisplay}</td>
-                <td class="asistencia-container">
-                    <input type="checkbox" id="asistencia-${visita.id}"
-                        data-proveedor-id="${visita.proveedor_id}"
-                        data-fecha="${visita.fecha}"
-                        data-tipo="${tipoCanon}"
-                        onchange="marcarAsistencia(${visita.id}, this.checked)">
-                    <label for="asistencia-${visita.id}">${label}</label>
-                </td>
-            `;
+            if (tipoCanon.toLowerCase().includes('preventa')) {
+                tr.innerHTML = `
+                    <td>${proveedor.nombre}</td>
+                    <td>${tipoDisplay}</td>
+                    <td class="asistencia-container">
+                        <select id="preventa-${visita.id}" class="asistencia-preventa-select" onchange="cambiarPreventa(${visita.id}, this.value)">
+                            <option value="">Selecciona...</option>
+                            <option value="se_pidio">Se pidió</option>
+                            <option value="no_pedido">No se pidió</option>
+                            <option value="no_vino">No vino</option>
+                        </select>
+                    </td>
+                `;
+            } else {
+                tr.innerHTML = `
+                    <td>${proveedor.nombre}</td>
+                    <td>${tipoDisplay}</td>
+                    <td class="asistencia-container">
+                        <input type="checkbox" id="asistencia-${visita.id}"
+                            data-proveedor-id="${visita.proveedor_id}"
+                            data-fecha="${visita.fecha}"
+                            data-tipo="${tipoCanon}"
+                            onchange="marcarAsistencia(${visita.id}, this.checked)">
+                        <label for="asistencia-${visita.id}">${label}</label>
+                    </td>
+                `;
+            }
             tbody.appendChild(tr);
             // Prefill asistencia si existe
             const prev = asistenciasData
                 .filter(a => a.visita_id === visita.id)
                 .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
             if (prev) {
-                const chk = document.getElementById(`asistencia-${visita.id}`);
-                const checked = Number(prev.asistio) === 1;
-                chk.checked = checked;
+                if (tipoCanon.toLowerCase().includes('preventa')) {
+                    const sel = document.getElementById(`preventa-${visita.id}`);
+                    const est = String(prev.estado_especifico || '').toLowerCase();
+                    if (sel) {
+                        if ((prev.hizo_preventa && Number(prev.hizo_preventa) === 1) || est.includes('se pid')) sel.value = 'se_pidio';
+                        else if (Number(prev.asistio) === 1) sel.value = 'no_pedido';
+                        else sel.value = 'no_vino';
+                    }
+                } else {
+                    const chk = document.getElementById(`asistencia-${visita.id}`);
+                    const checked = Number(prev.asistio) === 1;
+                    if (chk) chk.checked = checked;
+                }
             }
         }
         const empty = document.getElementById('asistencia-empty');
@@ -450,26 +475,50 @@ async function cargarProveedoresDeFecha(fechaISO) {
             const label = labelForTipo(tipoCanon);
             const tipoDisplay = tipoCanon;
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${proveedor.nombre}</td>
-                <td>${tipoDisplay}</td>
-                <td class="asistencia-container">
-                    <input type="checkbox" id="asistencia-${visita.id}"
-                        data-proveedor-id="${visita.proveedor_id}"
-                        data-fecha="${visita.fecha}"
-                        data-tipo="${tipoCanon}"
-                        onchange="marcarAsistencia(${visita.id}, this.checked)">
-                    <label for="asistencia-${visita.id}">${label}</label>
-                </td>`;
+            if (tipoCanon.toLowerCase().includes('preventa')) {
+                tr.innerHTML = `
+                    <td>${proveedor.nombre}</td>
+                    <td>${tipoDisplay}</td>
+                    <td class="asistencia-container">
+                        <select id="preventa-${visita.id}" class="asistencia-preventa-select" onchange="cambiarPreventa(${visita.id}, this.value)">
+                            <option value="">Selecciona...</option>
+                            <option value="se_pidio">Se pidió</option>
+                            <option value="no_pedido">No se pidió</option>
+                            <option value="no_vino">No vino</option>
+                        </select>
+                    </td>`;
+            } else {
+                tr.innerHTML = `
+                    <td>${proveedor.nombre}</td>
+                    <td>${tipoDisplay}</td>
+                    <td class="asistencia-container">
+                        <input type="checkbox" id="asistencia-${visita.id}"
+                            data-proveedor-id="${visita.proveedor_id}"
+                            data-fecha="${visita.fecha}"
+                            data-tipo="${tipoCanon}"
+                            onchange="marcarAsistencia(${visita.id}, this.checked)">
+                        <label for="asistencia-${visita.id}">${label}</label>
+                    </td>`;
+            }
             tbody.appendChild(tr);
             // Prefill asistencia si existe un registro previo
             const prev = asistenciasData
                 .filter(a => a.visita_id === visita.id)
                 .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
             if (prev) {
-                const chk = document.getElementById(`asistencia-${visita.id}`);
-                const checked = Number(prev.asistio) === 1;
-                chk.checked = checked;
+                if (tipoCanon.toLowerCase().includes('preventa')) {
+                    const sel = document.getElementById(`preventa-${visita.id}`);
+                    const est = String(prev.estado_especifico || '').toLowerCase();
+                    if (sel) {
+                        if ((prev.hizo_preventa && Number(prev.hizo_preventa) === 1) || est.includes('se pid')) sel.value = 'se_pidio';
+                        else if (Number(prev.asistio) === 1) sel.value = 'no_pedido';
+                        else sel.value = 'no_vino';
+                    }
+                } else {
+                    const chk = document.getElementById(`asistencia-${visita.id}`);
+                    const checked = Number(prev.asistio) === 1;
+                    if (chk) chk.checked = checked;
+                }
             }
         }
         const empty = document.getElementById('asistencia-empty');
@@ -489,11 +538,7 @@ async function marcarAsistencia(visitaId, checked) {
         const proveedor = proveedoresData.find(p => p.id === visita?.proveedor_id);
         const tipoCanon = tipoFor(visita, proveedor);
         let asistio = 0, hizo_preventa = null, estado_especifico = '';
-        if (tipoCanon.toLowerCase().includes('preventa')) {
-            hizo_preventa = checked ? 1 : 0;
-            asistio = checked ? 1 : 0;
-            estado_especifico = checked ? 'Pedir' : 'No pedir';
-        } else if (tipoCanon.toLowerCase().includes('entrega')) {
+    if (tipoCanon.toLowerCase().includes('entrega')) {
             asistio = checked ? 1 : 0;
             estado_especifico = checked ? 'Entregó' : 'No entregó';
         } else {
@@ -505,24 +550,7 @@ async function marcarAsistencia(visitaId, checked) {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosAsistencia)
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        // Si Preventa y pidió, crear visita de entrega para mañana si no existe
-        if (visita && tipoCanon.toLowerCase().includes('preventa') && checked) {
-            const hoyLocal = new Date(`${visita.fecha}T00:00:00`);
-            const manana = new Date(hoyLocal);
-            manana.setDate(hoyLocal.getDate() + 1);
-            const fechaManana = localISO(manana);
-            const existe = visitasData.some(v => v.proveedor_id === visita.proveedor_id && v.fecha === fechaManana && String(v.tipoVisita).toLowerCase().includes('entrega'));
-            if (!existe) {
-                await fetch(`${API_BASE}/visitas`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ proveedor_id: visita.proveedor_id, fecha: fechaManana, tipoVisita: 'Entrega de Pedido' })
-                });
-                try {
-                    const resVis = await fetch(`${API_BASE}/visitas`);
-                    if (resVis.ok) visitasData = await resVis.json();
-                } catch {}
-            }
-        }
+    // Preventa se maneja con el dropdown específico
         // Refrescar asistencias después de guardar para que la UI persista
         try {
             const resAs = await fetch(`${API_BASE}/asistencias`);
@@ -533,6 +561,51 @@ async function marcarAsistencia(visitaId, checked) {
         if (checkbox) checkbox.checked = !checked;
     }
 }
+
+// Utilidad: obtener siguiente día hábil (si es domingo, pasa a lunes)
+function nextBusinessDay(isoDate) {
+    const d = new Date(`${isoDate}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+    return localISO(d);
+}
+
+// Dropdown de Preventa: 'se_pidio' | 'no_pedido' | 'no_vino'
+async function cambiarPreventa(visitaId, value) {
+    try {
+        const visita = visitasData.find(v => v.id === visitaId);
+        if (!visita) return;
+        const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
+        const tipoCanon = tipoFor(visita, proveedor).toLowerCase();
+        if (!tipoCanon.includes('preventa')) return;
+        let asistio = 0, hizo_preventa = 0, estado_especifico = '';
+        if (value === 'se_pidio') { asistio = 1; hizo_preventa = 1; estado_especifico = 'Se pidió'; }
+        else if (value === 'no_pedido') { asistio = 1; hizo_preventa = 0; estado_especifico = 'No se pidió'; }
+        else if (value === 'no_vino') { asistio = 0; hizo_preventa = 0; estado_especifico = 'No vino'; }
+        await fetch(`${API_BASE}/asistencias`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visita_id: visitaId, asistio, hizo_preventa, estado_especifico })
+        });
+        if (value === 'se_pidio') {
+            const fechaEntrega = nextBusinessDay(visita.fecha);
+            const existe = visitasData.some(v => v.proveedor_id === visita.proveedor_id && v.fecha === fechaEntrega && String(v.tipoVisita||'').toLowerCase().includes('entrega'));
+            if (!existe) {
+                await fetch(`${API_BASE}/visitas`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proveedor_id: visita.proveedor_id, fecha: fechaEntrega, tipoVisita: 'Entrega de Pedido' })
+                });
+                try { const resVis = await fetch(`${API_BASE}/visitas`); if (resVis.ok) visitasData = await resVis.json(); } catch {}
+            }
+        }
+    // refrescar asistencias y tabla del día mostrado
+    try { const resAs = await fetch(`${API_BASE}/asistencias`); if (resAs.ok) asistenciasData = await resAs.json(); } catch {}
+    const fechaUI = document.getElementById('asistenciaFecha')?.value || localISO(new Date());
+    await cargarProveedoresDeFecha(fechaUI);
+    } catch (e) { console.error('Error cambiarPreventa:', e); }
+}
+
+// Exponer función dropdown preventa
+window.cambiarPreventa = cambiarPreventa;
 
 // === FUNCIONES GENERALES ===
 function actualizarTablaProveedores() {
