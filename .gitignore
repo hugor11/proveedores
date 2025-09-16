@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# Build output
+build/
+dist/
+.cache/
+.tmp/
+
+# Coverage
+coverage/
+
+# Environment variables
+.env
+.env.*.local
+.env.local
+
+# Netlify local data
+.netlify/
+functions-build/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Archives
+*.tgz
+*.zip
