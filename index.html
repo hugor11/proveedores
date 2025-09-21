@@ -121,6 +121,50 @@
         #tablaReporte th:first-child, #tablaReporte td:first-child { text-align: left; }
         .asistencia-container { display: flex; align-items: center; gap: 8px; justify-content: center; }
         .asistencia-container span { min-width: 25px; display: inline-block; text-align: left; vertical-align: middle; }
+        
+        /* Estilos para entrega automática */
+        .entrega-automatica {
+            background-color: #fff3cd !important;
+            border-left: 4px solid #ffc107 !important;
+        }
+        .entrega-automatica td {
+            position: relative;
+        }
+        .icono-preventa::before {
+            content: "🛒 ";
+            margin-right: 5px;
+        }
+        .icono-entrega::before {
+            content: "📦 ";
+            margin-right: 5px;
+        }
+        .tag-programada {
+            font-size: 0.75em;
+            color: #856404;
+            font-weight: 500;
+            background-color: #fff3cd;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-left: 5px;
+        }
+        .tooltip-entrega {
+            position: relative;
+        }
+        .tooltip-entrega:hover::after {
+            content: "Esta entrega fue programada automáticamente al marcar 'Se pidió' en preventa";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
         #navegacion { 
             margin-bottom: 25px; 
             display: flex;

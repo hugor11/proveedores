@@ -393,10 +393,18 @@ async function cargarProveedoresHoy() {
             const tipoCanon = tipoFor(visita, proveedor);
             const label = labelForTipo(tipoCanon);
             const tipoDisplay = tipoCanon;
+            
+            // Determinar si esta entrega fue programada automáticamente desde preventa
+            const esEntregaAutomatica = tipoCanon.toLowerCase().includes('entrega');
+            const estiloFila = esEntregaAutomatica ? 'style="background-color: #fff3cd; border-left: 4px solid #ffc107;"' : '';
+            const iconoEntrega = esEntregaAutomatica ? '📦 ' : '';
+            
             const tr = document.createElement('tr');
+            tr.setAttribute('style', estiloFila.replace('style="', '').replace('"', ''));
+            
             if (tipoCanon.toLowerCase().includes('preventa')) {
                 tr.innerHTML = `
-                    <td>${proveedor.nombre}</td>
+                    <td>🛒 ${proveedor.nombre}</td>
                     <td>${tipoDisplay}</td>
                     <td class="asistencia-container">
                         <select id="preventa-${visita.id}" class="asistencia-preventa-select" onchange="cambiarPreventa(${visita.id}, this.value)">
@@ -405,12 +413,13 @@ async function cargarProveedoresHoy() {
                             <option value="no_pedido">No se pidió</option>
                             <option value="no_vino">No vino</option>
                         </select>
+                        ${esEntregaAutomatica ? '<small style="color: #856404;">⚡ Programado automáticamente</small>' : ''}
                     </td>
                 `;
             } else {
                 tr.innerHTML = `
-                    <td>${proveedor.nombre}</td>
-                    <td>${tipoDisplay}</td>
+                    <td>${iconoEntrega}${proveedor.nombre}</td>
+                    <td>${tipoDisplay}${esEntregaAutomatica ? ' <small style="color: #856404;">(Programada)</small>' : ''}</td>
                     <td class="asistencia-container">
                         <input type="checkbox" id="asistencia-${visita.id}"
                             data-proveedor-id="${visita.proveedor_id}"
@@ -471,13 +480,22 @@ async function cargarProveedoresDeFecha(fechaISO) {
         for (const visita of visitasDia) {
             const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
             if (!proveedor) continue;
+            
             const tipoCanon = tipoFor(visita, proveedor);
             const label = labelForTipo(tipoCanon);
             const tipoDisplay = tipoCanon;
+            
+            // Determinar si esta entrega fue programada automáticamente desde preventa
+            const esEntregaAutomatica = tipoCanon.toLowerCase().includes('entrega');
+            const estiloFila = esEntregaAutomatica ? 'style="background-color: #fff3cd; border-left: 4px solid #ffc107;"' : '';
+            const iconoEntrega = esEntregaAutomatica ? '📦 ' : '';
+            
             const tr = document.createElement('tr');
+            tr.setAttribute('style', estiloFila.replace('style="', '').replace('"', ''));
+            
             if (tipoCanon.toLowerCase().includes('preventa')) {
                 tr.innerHTML = `
-                    <td>${proveedor.nombre}</td>
+                    <td>🛒 ${proveedor.nombre}</td>
                     <td>${tipoDisplay}</td>
                     <td class="asistencia-container">
                         <select id="preventa-${visita.id}" class="asistencia-preventa-select" onchange="cambiarPreventa(${visita.id}, this.value)">
@@ -489,8 +507,8 @@ async function cargarProveedoresDeFecha(fechaISO) {
                     </td>`;
             } else {
                 tr.innerHTML = `
-                    <td>${proveedor.nombre}</td>
-                    <td>${tipoDisplay}</td>
+                    <td>${iconoEntrega}${proveedor.nombre}</td>
+                    <td>${tipoDisplay}${esEntregaAutomatica ? ' <small style="color: #856404;">(Programada)</small>' : ''}</td>
                     <td class="asistencia-container">
                         <input type="checkbox" id="asistencia-${visita.id}"
                             data-proveedor-id="${visita.proveedor_id}"
@@ -566,7 +584,33 @@ async function marcarAsistencia(visitaId, checked) {
 function nextBusinessDay(isoDate) {
     const d = new Date(`${isoDate}T00:00:00`);
     d.setDate(d.getDate() + 1);
+    // Si es domingo (0), avanzar al lunes
     if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+    return localISO(d);
+}
+
+// Utilidad: verificar si una fecha es día hábil (lunes a sábado)
+function isBusinessDay(isoDate) {
+    const d = new Date(`${isoDate}T00:00:00`);
+    const dayOfWeek = d.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
+    return dayOfWeek !== 0; // No es domingo
+}
+
+// Obtener días no laborables configurados (extensible para futuras configuraciones)
+function getNonWorkingDays() {
+    // Por ahora solo domingo (0), pero fácil de extender
+    return [0]; // Array de números donde 0=domingo, 1=lunes, etc.
+}
+
+// Versión mejorada: obtener siguiente día hábil considerando configuración
+function getNextBusinessDay(isoDate) {
+    const nonWorkingDays = getNonWorkingDays();
+    const d = new Date(`${isoDate}T00:00:00`);
+    
+    do {
+        d.setDate(d.getDate() + 1);
+    } while (nonWorkingDays.includes(d.getDay()));
+    
     return localISO(d);
 }
 
@@ -575,33 +619,106 @@ async function cambiarPreventa(visitaId, value) {
     try {
         const visita = visitasData.find(v => v.id === visitaId);
         if (!visita) return;
+        
         const proveedor = proveedoresData.find(p => p.id === visita.proveedor_id);
         const tipoCanon = tipoFor(visita, proveedor).toLowerCase();
         if (!tipoCanon.includes('preventa')) return;
+        
+        // Mapear valores del dropdown a datos de asistencia
         let asistio = 0, hizo_preventa = 0, estado_especifico = '';
-        if (value === 'se_pidio') { asistio = 1; hizo_preventa = 1; estado_especifico = 'Se pidió'; }
-        else if (value === 'no_pedido') { asistio = 1; hizo_preventa = 0; estado_especifico = 'No se pidió'; }
-        else if (value === 'no_vino') { asistio = 0; hizo_preventa = 0; estado_especifico = 'No vino'; }
+        if (value === 'se_pidio') { 
+            asistio = 1; 
+            hizo_preventa = 1; 
+            estado_especifico = 'Se pidió'; 
+        }
+        else if (value === 'no_pedido') { 
+            asistio = 1; 
+            hizo_preventa = 0; 
+            estado_especifico = 'No se pidió'; 
+        }
+        else if (value === 'no_vino') { 
+            asistio = 0; 
+            hizo_preventa = 0; 
+            estado_especifico = 'No vino'; 
+        }
+        
+        // Guardar asistencia de preventa
         await fetch(`${API_BASE}/asistencias`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ visita_id: visitaId, asistio, hizo_preventa, estado_especifico })
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                visita_id: visitaId, 
+                asistio, 
+                hizo_preventa, 
+                estado_especifico 
+            })
         });
+        
+        // LÓGICA AUTOMÁTICA DE PROGRAMACIÓN DE ENTREGA
         if (value === 'se_pidio') {
-            const fechaEntrega = nextBusinessDay(visita.fecha);
-            const existe = visitasData.some(v => v.proveedor_id === visita.proveedor_id && v.fecha === fechaEntrega && String(v.tipoVisita||'').toLowerCase().includes('entrega'));
-            if (!existe) {
+            // Calcular siguiente día hábil para entrega
+            const fechaEntrega = getNextBusinessDay(visita.fecha);
+            
+            // Verificar si ya existe una entrega programada para este proveedor en esa fecha
+            const existeEntrega = visitasData.some(v => 
+                v.proveedor_id === visita.proveedor_id && 
+                v.fecha === fechaEntrega && 
+                String(v.tipoVisita || '').toLowerCase().includes('entrega')
+            );
+            
+            if (!existeEntrega) {
+                console.log(`Programando entrega automática para ${proveedor.nombre} el ${fechaEntrega}`);
+                
+                // Crear visita de entrega automáticamente
                 await fetch(`${API_BASE}/visitas`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ proveedor_id: visita.proveedor_id, fecha: fechaEntrega, tipoVisita: 'Entrega de Pedido' })
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        proveedor_id: visita.proveedor_id, 
+                        fecha: fechaEntrega, 
+                        tipoVisita: 'Entrega de Pedido' 
+                    })
                 });
-                try { const resVis = await fetch(`${API_BASE}/visitas`); if (resVis.ok) visitasData = await resVis.json(); } catch {}
+                
+                // Refrescar visitas para que aparezca inmediatamente
+                try { 
+                    const resVis = await fetch(`${API_BASE}/visitas`); 
+                    if (resVis.ok) visitasData = await resVis.json(); 
+                } catch (e) {
+                    console.warn('Error refrescando visitas:', e);
+                }
+            }
+        } else {
+            // Si marcó "no_pedido" o "no_vino", verificar si hay entrega programada y alertar
+            const fechaEntrega = getNextBusinessDay(visita.fecha);
+            const entregaProgramada = visitasData.find(v => 
+                v.proveedor_id === visita.proveedor_id && 
+                v.fecha === fechaEntrega && 
+                String(v.tipoVisita || '').toLowerCase().includes('entrega')
+            );
+            
+            if (entregaProgramada) {
+                console.log(`Nota: Existe entrega programada para ${proveedor.nombre} el ${fechaEntrega} que podría cancelarse`);
+                // Por ahora solo alertamos, no eliminamos automáticamente
+                // El usuario puede gestionar manualmente si fue un error
             }
         }
-    // refrescar asistencias y tabla del día mostrado
-    try { const resAs = await fetch(`${API_BASE}/asistencias`); if (resAs.ok) asistenciasData = await resAs.json(); } catch {}
-    const fechaUI = document.getElementById('asistenciaFecha')?.value || localISO(new Date());
-    await cargarProveedoresDeFecha(fechaUI);
-    } catch (e) { console.error('Error cambiarPreventa:', e); }
+        
+        // Refrescar asistencias y tabla del día mostrado
+        try { 
+            const resAs = await fetch(`${API_BASE}/asistencias`); 
+            if (resAs.ok) asistenciasData = await resAs.json(); 
+        } catch (e) {
+            console.warn('Error refrescando asistencias:', e);
+        }
+        
+        const fechaUI = document.getElementById('asistenciaFecha')?.value || localISO(new Date());
+        await cargarProveedoresDeFecha(fechaUI);
+        
+    } catch (e) { 
+        console.error('Error cambiarPreventa:', e);
+        alert('Error al procesar preventa. Verifique la conexión e intente nuevamente.');
+    }
 }
 
 // Exponer función dropdown preventa

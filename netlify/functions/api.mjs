@@ -56,10 +56,36 @@ async function ensureSchema(sql) {
     id serial primary key,
     visita_id integer not null references visitas(id) on delete cascade,
     asistio integer not null default 0,
-    hizo_preventa text,
+    hizo_preventa integer default 0,
     estado_especifico text,
     creado_en timestamptz default now()
   )`;
+  
+  // Migración: convertir hizo_preventa de text a integer si es necesario
+  try {
+    // Verificar si la columna ya es integer
+    const colInfo = await sql`
+      SELECT data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'asistencias' AND column_name = 'hizo_preventa'
+    `;
+    
+    if (colInfo.length > 0 && colInfo[0].data_type === 'text') {
+      console.log('Migrando hizo_preventa de text a integer...');
+      
+      // Actualizar valores text a integer
+      await sql`UPDATE asistencias SET hizo_preventa = '1' WHERE hizo_preventa = 'true' OR hizo_preventa = '1'`;
+      await sql`UPDATE asistencias SET hizo_preventa = '0' WHERE hizo_preventa IS NULL OR hizo_preventa = 'false' OR hizo_preventa = '0' OR hizo_preventa = ''`;
+      
+      // Cambiar tipo de columna
+      await sql`ALTER TABLE asistencias ALTER COLUMN hizo_preventa TYPE integer USING COALESCE(NULLIF(hizo_preventa, '')::integer, 0)`;
+      await sql`ALTER TABLE asistencias ALTER COLUMN hizo_preventa SET DEFAULT 0`;
+      
+      console.log('Migración completada');
+    }
+  } catch (e) {
+    console.warn('Error en migración de hizo_preventa:', e.message);
+  }
 }
 
 export const handler = async (event) => {
@@ -265,7 +291,15 @@ export const handler = async (event) => {
         const body = JSON.parse(event.body || '{}');
         const { visita_id, asistio, hizo_preventa, estado_especifico } = body;
         if (!visita_id) return json(400, { error: 'visita_id es requerido' });
-        const rows = await sql`insert into asistencias(visita_id, asistio, hizo_preventa, estado_especifico) values(${Number(visita_id)}, ${Number(asistio) ? 1 : 0}, ${hizo_preventa || null}, ${estado_especifico || null}) returning *`;
+        
+        // Asegurar que hizo_preventa sea integer
+        const hizoPreventaInt = hizo_preventa ? (Number(hizo_preventa) ? 1 : 0) : 0;
+        
+        const rows = await sql`
+          insert into asistencias(visita_id, asistio, hizo_preventa, estado_especifico) 
+          values(${Number(visita_id)}, ${Number(asistio) ? 1 : 0}, ${hizoPreventaInt}, ${estado_especifico || null}) 
+          returning *
+        `;
         return json(201, rows[0]);
       }
       return json(405, { error: 'Método no permitido' });
